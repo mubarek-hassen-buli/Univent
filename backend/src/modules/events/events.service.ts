@@ -13,7 +13,11 @@ import { events } from '../../database/schema/events.schema.js';
 import { categories } from '../../database/schema/categories.schema.js';
 import { user } from '../../database/schema/auth.schema.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
-import type { UpdateEventDto, UpdateEventStatusDto } from './dto/update-event.dto.js';
+import type {
+  UpdateEventDto,
+  UpdateEventStatusDto,
+  UpdateEventVisibilityDto,
+} from './dto/update-event.dto.js';
 import type { QueryEventsDto } from './dto/query-events.dto.js';
 
 @Injectable()
@@ -92,6 +96,7 @@ export class EventsService {
 
     if (isPublic) {
       conditions.push(eq(events.status, query.status ?? 'PUBLISHED'));
+      conditions.push(eq(events.isHidden, false));
     } else if (query.status) {
       conditions.push(eq(events.status, query.status));
     }
@@ -277,6 +282,7 @@ export class EventsService {
     if (dto.endDate !== undefined) updateData.endDate = new Date(dto.endDate);
     if (dto.capacity !== undefined) updateData.capacity = dto.capacity;
     if (dto.bannerUrl !== undefined) updateData.bannerUrl = dto.bannerUrl;
+    if (dto.isHidden !== undefined) updateData.isHidden = dto.isHidden;
 
     const [updated] = await this.db
       .update(events)
@@ -289,6 +295,38 @@ export class EventsService {
       await pusher.trigger('events', 'event:updated', updated);
       await pusher.trigger(`event-${eventId}`, 'event:updated', updated);
       await pusher.trigger(`organizer-${existing.organizerId}`, 'event:updated', updated);
+    }
+
+    return updated;
+  }
+
+  async updateEventVisibility(
+    userId: string,
+    userRole: string,
+    eventId: string,
+    dto: UpdateEventVisibilityDto,
+  ) {
+    const existing = await this.getEventById(eventId);
+
+    if (userRole !== 'admin' && existing.organizerId !== userId) {
+      throw new ForbiddenException('You can only modify visibility of your own events');
+    }
+
+    const [updated] = await this.db
+      .update(events)
+      .set({
+        isHidden: dto.isHidden,
+        updatedAt: new Date(),
+      })
+      .where(eq(events.id, eventId))
+      .returning();
+
+    const pusher = this.pusherService;
+    if (pusher) {
+      await pusher.trigger('events', 'event:updated', updated);
+      await pusher.trigger('events', 'event:visibility-changed', updated);
+      await pusher.trigger(`event-${eventId}`, 'event:visibility-changed', updated);
+      await pusher.trigger(`organizer-${existing.organizerId}`, 'event:visibility-changed', updated);
     }
 
     return updated;

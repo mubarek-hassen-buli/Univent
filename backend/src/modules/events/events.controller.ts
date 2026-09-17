@@ -24,8 +24,10 @@ import {
 import {
   updateEventSchema,
   updateEventStatusSchema,
+  updateEventVisibilitySchema,
   type UpdateEventDto,
   type UpdateEventStatusDto,
+  type UpdateEventVisibilityDto,
 } from './dto/update-event.dto.js';
 import {
   queryEventsSchema,
@@ -108,6 +110,23 @@ export class EventsController {
     @Body(new ZodValidationPipe(updateEventStatusSchema)) body: UpdateEventStatusDto,
   ) {
     return this.eventsService.updateEventStatus(
+      userId,
+      userRole,
+      eventId,
+      body,
+    );
+  }
+
+  @Patch(':id/visibility')
+  @UseGuards(RolesGuard)
+  @Roles('organizer', 'admin')
+  async updateEventVisibility(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') eventId: string,
+    @Body(new ZodValidationPipe(updateEventVisibilitySchema)) body: UpdateEventVisibilityDto,
+  ) {
+    return this.eventsService.updateEventVisibility(
       userId,
       userRole,
       eventId,

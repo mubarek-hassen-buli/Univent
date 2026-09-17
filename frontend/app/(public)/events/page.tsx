@@ -30,6 +30,9 @@ export default function EventsCatalogPage() {
     "event:status-changed": () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
     },
+    "event:visibility-changed": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
     "event:seat-update": () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
     },

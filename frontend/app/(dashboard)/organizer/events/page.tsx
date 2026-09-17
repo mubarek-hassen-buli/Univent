@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useMyEvents, useDeleteEvent } from "@/lib/query/events.query";
+import { useMyEvents, useDeleteEvent, useUpdateEventVisibility } from "@/lib/query/events.query";
 import { useAuth } from "@/hooks/use-auth";
 import { usePusherChannel } from "@/hooks/use-pusher";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,8 @@ import {
   Users,
   MapPin,
   QrCode,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function OrganizerEventsPage() {
@@ -24,6 +26,7 @@ export default function OrganizerEventsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useMyEvents({ page, limit: 10 });
   const deleteMutation = useDeleteEvent();
+  const visibilityMutation = useUpdateEventVisibility();
 
   // Real-time synchronization for managed events table
   usePusherChannel(user?.id ? `organizer-${user.id}` : null, {
@@ -34,6 +37,9 @@ export default function OrganizerEventsPage() {
       queryClient.invalidateQueries({ queryKey: ["my-events"] });
     },
     "event:status-changed": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "event:visibility-changed": () => {
       queryClient.invalidateQueries({ queryKey: ["my-events"] });
     },
     "event:deleted": () => {
@@ -49,6 +55,14 @@ export default function OrganizerEventsPage() {
 
   const events = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const handleToggleVisibility = async (id: string, currentHidden: boolean) => {
+    try {
+      await visibilityMutation.mutateAsync({ eventId: id, isHidden: !currentHidden });
+    } catch {
+      alert("Failed to update event visibility.");
+    }
+  };
 
   const handleDelete = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete or cancel "${title}"?`)) {
@@ -160,22 +174,47 @@ export default function OrganizerEventsPage() {
 
                       {/* Status */}
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${
-                            evt.status === "PUBLISHED"
-                              ? "bg-primary/10 text-primary"
-                              : evt.status === "COMPLETED"
-                                ? "bg-muted text-muted-foreground"
-                                : "bg-destructive/10 text-destructive"
-                          }`}
-                        >
-                          {evt.status}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${
+                              evt.status === "PUBLISHED"
+                                ? "bg-primary/10 text-primary"
+                                : evt.status === "COMPLETED"
+                                  ? "bg-muted text-muted-foreground"
+                                  : "bg-destructive/10 text-destructive"
+                            }`}
+                          >
+                            {evt.status}
+                          </span>
+                          {evt.isHidden && (
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+                              <EyeOff className="h-3 w-3" />
+                              Hidden
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Hide / Unhide Toggle */}
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() => handleToggleVisibility(evt.id, evt.isHidden)}
+                            disabled={visibilityMutation.isPending}
+                            className={`gap-1 text-xs ${
+                              evt.isHidden
+                                ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                            title={evt.isHidden ? "Unhide this event (make visible to students)" : "Hide this event from students"}
+                          >
+                            {evt.isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            <span className="hidden sm:inline">{evt.isHidden ? "Unhide" : "Hide"}</span>
+                          </Button>
+
                           <Link href={`/organizer/events/${evt.id}/scanner`}>
                             <Button
                               variant="outline"

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, LayoutDashboard, Calendar, LogOut } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, Calendar, Users, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -24,6 +24,12 @@ export function AdminNav() {
       href: "/admin/events",
       icon: Calendar,
       active: pathname.startsWith("/admin/events"),
+    },
+    {
+      label: "Users",
+      href: "/admin/users",
+      icon: Users,
+      active: pathname.startsWith("/admin/users"),
     },
   ];
 

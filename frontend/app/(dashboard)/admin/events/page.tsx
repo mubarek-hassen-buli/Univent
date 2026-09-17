@@ -2,24 +2,22 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useAdminEvents, useUpdateEventStatus, useDeleteEvent } from "@/lib/query/events.query";
+import { useAdminEvents } from "@/lib/query/events.query";
 import { usePusherChannel } from "@/hooks/use-pusher";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
-  Trash2,
   Loader2,
   Users,
   MapPin,
   Search,
-  CheckCircle,
-  XCircle,
-  Clock,
   Sparkles,
   ChevronLeft,
   ChevronRight,
   Eye,
+  EyeOff,
+  ExternalLink,
 } from "lucide-react";
 
 type EventStatusFilter = "ALL" | "PUBLISHED" | "DRAFT" | "COMPLETED" | "CANCELLED";
@@ -39,9 +37,6 @@ export default function AdminEventsPage() {
     status: statusParam,
   });
 
-  const updateStatusMutation = useUpdateEventStatus();
-  const deleteMutation = useDeleteEvent();
-
   // Real-time synchronization
   usePusherChannel("events", {
     "event:created": () => {
@@ -51,6 +46,9 @@ export default function AdminEventsPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
     },
     "event:status-changed": () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    "event:visibility-changed": () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
     },
     "event:deleted": () => {
@@ -67,24 +65,6 @@ export default function AdminEventsPage() {
   const events = data?.data ?? [];
   const pagination = data?.pagination;
 
-  const handleStatusChange = async (eventId: string, newStatus: string) => {
-    try {
-      await updateStatusMutation.mutateAsync({ eventId, status: newStatus });
-    } catch {
-      alert("Failed to update event status.");
-    }
-  };
-
-  const handleDelete = async (id: string, title: string) => {
-    if (confirm(`Are you sure you want to permanently delete event "${title}"?`)) {
-      try {
-        await deleteMutation.mutateAsync(id);
-      } catch {
-        alert("Failed to delete event.");
-      }
-    }
-  };
-
   const statusTabs: { label: string; value: EventStatusFilter }[] = [
     { label: "All Events", value: "ALL" },
     { label: "Published", value: "PUBLISHED" },
@@ -100,13 +80,13 @@ export default function AdminEventsPage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-destructive uppercase tracking-wider">
             <Sparkles className="h-3.5 w-3.5" />
-            Global Administration
+            Global Event Monitor
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             Platform Event Directory
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Audit, moderate lifecycle states, and monitor registrations across all university events.
+            Audit and inspect university event registrations, organizer schedules, and visibility states.
           </p>
         </div>
 
@@ -184,7 +164,8 @@ export default function AdminEventsPage() {
                   <th className="px-5 py-3.5">Date & Time</th>
                   <th className="px-5 py-3.5">Capacity</th>
                   <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                  <th className="px-5 py-3.5">Visibility</th>
+                  <th className="px-5 py-3.5 text-right">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -268,69 +249,33 @@ export default function AdminEventsPage() {
                         </span>
                       </td>
 
-                      {/* Admin Actions */}
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {evt.status === "DRAFT" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1 text-xs text-emerald-600 hover:text-emerald-700"
-                              disabled={updateStatusMutation.isPending}
-                              onClick={() => handleStatusChange(evt.id, "PUBLISHED")}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                              Publish
-                            </Button>
-                          )}
-                          {evt.status === "PUBLISHED" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1 text-xs"
-                                disabled={updateStatusMutation.isPending}
-                                onClick={() => handleStatusChange(evt.id, "COMPLETED")}
-                              >
-                                <CheckCircle className="h-3.5 w-3.5" />
-                                Complete
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1 text-xs text-destructive hover:text-destructive"
-                                disabled={updateStatusMutation.isPending}
-                                onClick={() => handleStatusChange(evt.id, "CANCELLED")}
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                                Cancel
-                              </Button>
-                            </>
-                          )}
-                          {evt.status === "CANCELLED" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1 text-xs"
-                              disabled={updateStatusMutation.isPending}
-                              onClick={() => handleStatusChange(evt.id, "PUBLISHED")}
-                            >
-                              <Clock className="h-3.5 w-3.5" />
-                              Re-publish
-                            </Button>
-                          )}
+                      {/* Visibility State */}
+                      <td className="px-5 py-4">
+                        {evt.isHidden ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                            <EyeOff className="h-3 w-3" />
+                            Hidden by Organizer
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
+                            <Eye className="h-3 w-3" />
+                            Publicly Visible
+                          </span>
+                        )}
+                      </td>
 
+                      {/* Preview Details */}
+                      <td className="px-5 py-4 text-right">
+                        <Link href={`/events/${evt.slug}`} target="_blank">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(evt.id, evt.title)}
-                            disabled={deleteMutation.isPending}
-                            title="Delete event"
+                            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Preview
                           </Button>
-                        </div>
+                        </Link>
                       </td>
                     </tr>
                   );

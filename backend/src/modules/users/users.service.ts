@@ -1,12 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, desc, count } from 'drizzle-orm';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Optional,
+} from '@nestjs/common';
+import { eq, desc, count, or, ilike, and } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service.js';
 import { user } from '../../database/schema/auth.schema.js';
+import { AuthService } from '../auth/auth.service.js';
+import { PusherService } from '../../common/pusher/pusher.service.js';
 import type { UpdateUserDto, UpdateRoleDto } from './dto/update-user.dto.js';
+import type { CreateUserDto, QueryUsersDto } from './dto/create-user.dto.js';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly authService: AuthService,
+    @Optional() private readonly pusherService?: PusherService,
+  ) {}
 
   private get db() {
     return this.databaseService.db;
@@ -63,12 +76,35 @@ export class UsersService {
     return updatedUser;
   }
 
-  async listUsers(page = 1, limit = 20) {
-    const safeLimit = Math.min(Math.max(limit, 1), 100);
-    const safePage = Math.max(page, 1);
+  async listUsers(query: QueryUsersDto) {
+    const safeLimit = Math.min(Math.max(query.limit ?? 20, 1), 100);
+    const safePage = Math.max(query.page ?? 1, 1);
     const offset = (safePage - 1) * safeLimit;
 
-    const [totalRecord] = await this.db.select({ value: count() }).from(user);
+    const conditions = [];
+
+    if (query.role) {
+      conditions.push(eq(user.role, query.role));
+    }
+
+    if (query.search && query.search.trim()) {
+      const pattern = `%${query.search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(user.name, pattern),
+          ilike(user.email, pattern),
+          ilike(user.studentId, pattern),
+          ilike(user.department, pattern),
+        ),
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalRecord] = await this.db
+      .select({ value: count() })
+      .from(user)
+      .where(whereClause);
     const total = totalRecord?.value ?? 0;
 
     const users = await this.db
@@ -82,6 +118,7 @@ export class UsersService {
         createdAt: user.createdAt,
       })
       .from(user)
+      .where(whereClause)
       .orderBy(desc(user.createdAt))
       .limit(safeLimit)
       .offset(offset);
@@ -95,6 +132,65 @@ export class UsersService {
         totalPages: Math.ceil(total / safeLimit),
       },
     };
+  }
+
+  async createUser(dto: CreateUserDto) {
+    const existing = await this.db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, dto.email))
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    const res = await this.authService.auth.api.signUpEmail({
+      body: {
+        email: dto.email,
+        password: dto.password,
+        name: dto.name,
+        role: dto.role,
+        studentId: dto.studentId || '',
+        department: dto.department || '',
+      },
+    });
+
+    const createdUser = res.user;
+
+    if (this.pusherService) {
+      await this.pusherService.trigger('users', 'user:created', createdUser);
+      await this.pusherService.trigger('admin', 'user:created', createdUser);
+    }
+
+    return createdUser;
+  }
+
+  async deleteUser(userId: string, currentAdminId: string) {
+    if (userId === currentAdminId) {
+      throw new BadRequestException('You cannot delete your own admin account');
+    }
+
+    const [deleted] = await this.db
+      .delete(user)
+      .where(eq(user.id, userId))
+      .returning({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      });
+
+    if (!deleted) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (this.pusherService) {
+      await this.pusherService.trigger('users', 'user:deleted', { id: userId });
+      await this.pusherService.trigger('admin', 'user:deleted', { id: userId });
+    }
+
+    return deleted;
   }
 
   async updateUserRole(userId: string, data: UpdateRoleDto) {
@@ -115,6 +211,11 @@ export class UsersService {
 
     if (!updatedUser) {
       throw new NotFoundException('User not found');
+    }
+
+    if (this.pusherService) {
+      await this.pusherService.trigger('users', 'user:updated', updatedUser);
+      await this.pusherService.trigger('admin', 'user:updated', updatedUser);
     }
 
     return updatedUser;

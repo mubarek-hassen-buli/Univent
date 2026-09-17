@@ -33,6 +33,7 @@ export const events = pgTable(
     registeredCount: integer('registered_count').notNull().default(0),
     version: integer('version').notNull().default(0), // OCC version check
     bannerUrl: text('banner_url'),
+    isHidden: boolean('is_hidden').notNull().default(false),
     status: text('status').notNull().default('DRAFT'), // 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

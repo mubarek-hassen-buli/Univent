@@ -16,6 +16,7 @@ export interface EventItem {
   remainingSeats: number;
   isSoldOut: boolean;
   bannerUrl?: string | null;
+  isHidden: boolean;
   status: 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   createdAt: string;
   category?: {
@@ -171,3 +172,18 @@ export function useUpdateEventStatus() {
   });
 }
 
+export function useUpdateEventVisibility() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ eventId, isHidden }: { eventId: string; isHidden: boolean }) => {
+      const response = await apiClient.patch(`/events/${eventId}/visibility`, { isHidden });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['my-events'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] });
+    },
+  });
+}

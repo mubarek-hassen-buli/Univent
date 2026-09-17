@@ -1,12 +1,13 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { UsersService } from './users.service.js';
 import { AuthGuard } from '../../common/guards/auth.guard.js';
@@ -20,6 +21,12 @@ import {
   type UpdateUserDto,
   type UpdateRoleDto,
 } from './dto/update-user.dto.js';
+import {
+  createUserSchema,
+  queryUsersSchema,
+  type CreateUserDto,
+  type QueryUsersDto,
+} from './dto/create-user.dto.js';
 
 @Controller('users')
 @UseGuards(AuthGuard)
@@ -43,13 +50,28 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles('admin')
   async listUsers(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query(new ZodValidationPipe(queryUsersSchema)) query: QueryUsersDto,
   ) {
-    return this.usersService.listUsers(
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 20,
-    );
+    return this.usersService.listUsers(query);
+  }
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async createUser(
+    @Body(new ZodValidationPipe(createUserSchema)) body: CreateUserDto,
+  ) {
+    return this.usersService.createUser(body);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async deleteUser(
+    @Param('id') targetUserId: string,
+    @CurrentUser('id') currentAdminId: string,
+  ) {
+    return this.usersService.deleteUser(targetUserId, currentAdminId);
   }
 
   @Patch(':id/role')

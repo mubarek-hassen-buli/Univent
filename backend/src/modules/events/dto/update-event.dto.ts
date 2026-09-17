@@ -11,6 +11,7 @@ export const updateEventSchema = z.object({
   endDate: z.coerce.date().optional(),
   capacity: z.coerce.number().int().positive().optional(),
   bannerUrl: z.string().url().optional().nullable().or(z.literal('')),
+  isHidden: z.boolean().optional(),
 });
 
 export type UpdateEventDto = z.infer<typeof updateEventSchema>;
@@ -25,3 +26,10 @@ export const updateEventStatusSchema = z.object({
 });
 
 export type UpdateEventStatusDto = z.infer<typeof updateEventStatusSchema>;
+
+export const updateEventVisibilitySchema = z.object({
+  isHidden: z.boolean(),
+});
+
+export type UpdateEventVisibilityDto = z.infer<typeof updateEventVisibilitySchema>;
+
