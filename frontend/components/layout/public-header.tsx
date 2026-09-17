@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GraduationCap, Calendar, User, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function PublicHeader() {
   const { user, isAuthenticated, role, logout } = useAuth();
@@ -44,6 +45,7 @@ export function PublicHeader() {
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (
             <div className="flex items-center gap-2">
+              <NotificationBell />
               <Link href={dashboardPath}>
                 <Button variant="outline" size="sm" className="gap-2">
                   <User className="h-3.5 w-3.5" />

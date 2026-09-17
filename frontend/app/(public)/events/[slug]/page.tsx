@@ -1,10 +1,12 @@
 "use client";
 
-import React, { use } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { PublicHeader } from "@/components/layout/public-header";
 import { useEvent } from "@/lib/query/events.query";
 import { useAuth } from "@/hooks/use-auth";
+import { getPusherClient } from "@/lib/pusher/pusher-client";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -17,6 +19,7 @@ import {
   Loader2,
   Ticket,
   CheckCircle2,
+  Radio,
 } from "lucide-react";
 
 interface EventDetailPageProps {
@@ -27,8 +30,49 @@ interface EventDetailPageProps {
 
 export default function EventDetailPage({ params }: EventDetailPageProps) {
   const { slug } = use(params);
+  const queryClient = useQueryClient();
   const { data: event, isLoading, isError } = useEvent(slug);
   const { isAuthenticated, isStudent } = useAuth();
+
+  const [liveSeats, setLiveSeats] = useState<{
+    remainingSeats: number;
+    registeredCount: number;
+    isSoldOut: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!event?.id) return;
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
+    const channelName = `event-${event.id}`;
+    const channel = pusher.subscribe(channelName);
+
+    channel.bind(
+      "event:seat-update",
+      (data: {
+        eventId: string;
+        registeredCount: number;
+        capacity: number;
+        remainingSeats: number;
+        isSoldOut: boolean;
+      }) => {
+        if (data.eventId === event.id) {
+          setLiveSeats({
+            remainingSeats: data.remainingSeats,
+            registeredCount: data.registeredCount,
+            isSoldOut: data.isSoldOut,
+          });
+          queryClient.invalidateQueries({ queryKey: ["events", slug] });
+        }
+      },
+    );
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(channelName);
+    };
+  }, [event?.id, slug, queryClient]);
 
   if (isLoading) {
     return (
@@ -82,8 +126,15 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
     minute: "2-digit",
   });
 
+  const effectiveRemainingSeats =
+    liveSeats !== null ? liveSeats.remainingSeats : event.remainingSeats;
+  const effectiveRegisteredCount =
+    liveSeats !== null ? liveSeats.registeredCount : event.registeredCount;
+  const effectiveIsSoldOut =
+    liveSeats !== null ? liveSeats.isSoldOut : event.isSoldOut;
+
   const seatPercentage = Math.min(
-    Math.round((event.registeredCount / event.capacity) * 100),
+    Math.round((effectiveRegisteredCount / event.capacity) * 100),
     100,
   );
 
@@ -225,20 +276,26 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
                   <span className="flex items-center gap-1.5 text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     Available Seats
+                    {liveSeats !== null && (
+                      <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
+                        <Radio className="h-2.5 w-2.5 animate-pulse" />
+                        Live
+                      </span>
+                    )}
                   </span>
                   <span
                     className={`font-semibold ${
-                      event.isSoldOut ? "text-destructive" : "text-primary"
+                      effectiveIsSoldOut ? "text-destructive" : "text-primary"
                     }`}
                   >
-                    {event.remainingSeats} left of {event.capacity}
+                    {effectiveRemainingSeats} left of {event.capacity}
                   </span>
                 </div>
 
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className={`h-full transition-all duration-300 ${
-                      event.isSoldOut ? "bg-destructive" : "bg-primary"
+                      effectiveIsSoldOut ? "bg-destructive" : "bg-primary"
                     }`}
                     style={{ width: `${seatPercentage}%` }}
                   />
@@ -247,7 +304,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
 
               {/* Registration Call To Action */}
               <div className="mt-6">
-                {event.isSoldOut ? (
+                {effectiveIsSoldOut ? (
                   <Button disabled className="w-full justify-center gap-2">
                     Event Sold Out
                   </Button>

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { GraduationCap, LayoutDashboard, Ticket, Award, Compass, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function StudentNav() {
   const pathname = usePathname();
@@ -79,6 +80,7 @@ export function StudentNav() {
 
         {/* Student Profile Info & Actions */}
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <div className="hidden text-right sm:block">
             <p className="text-xs font-semibold text-foreground">
               {user?.name || "Student"}

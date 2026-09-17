@@ -10,6 +10,8 @@ import { RegistrationsModule } from './modules/registrations/registrations.modul
 import { PusherModule } from './common/pusher/pusher.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { CertificatesModule } from './modules/certificates/certificates.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
@@ -26,6 +28,8 @@ import { AppService } from './app.service.js';
     RegistrationsModule,
     AttendanceModule,
     CertificatesModule,
+    NotificationsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -5,6 +5,7 @@ import { events } from './events.schema.js';
 import { registrations } from './registrations.schema.js';
 import { attendance } from './attendance.schema.js';
 import { certificates } from './certificates.schema.js';
+import { notifications } from './notifications.schema.js';
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
@@ -13,6 +14,7 @@ export const userRelations = relations(user, ({ many }) => ({
   registrations: many(registrations),
   scannedAttendances: many(attendance, { relationName: 'scannerAttendance' }),
   certificates: many(certificates),
+  notifications: many(notifications),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -83,6 +85,13 @@ export const certificateRelations = relations(certificates, ({ one }) => ({
   }),
   user: one(user, {
     fields: [certificates.userId],
+    references: [user.id],
+  }),
+}));
+
+export const notificationRelations = relations(notifications, ({ one }) => ({
+  user: one(user, {
+    fields: [notifications.userId],
     references: [user.id],
   }),
 }));

@@ -3,39 +3,33 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, Calendar, PlusCircle, BarChart3, ArrowLeft } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, Calendar, Compass, LogOut, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
 
-export function OrganizerNav() {
+export function AdminNav() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
   const navLinks = [
     {
-      label: "Overview",
-      href: "/organizer",
+      label: "Platform Command",
+      href: "/admin",
       icon: LayoutDashboard,
-      active: pathname === "/organizer",
+      active: pathname === "/admin",
     },
     {
-      label: "My Events",
-      href: "/organizer/events",
+      label: "All Events",
+      href: "/events",
+      icon: Compass,
+      active: pathname === "/events",
+    },
+    {
+      label: "Organizer View",
+      href: "/organizer",
       icon: Calendar,
-      active: pathname === "/organizer/events",
-    },
-    {
-      label: "Analytics",
-      href: "/organizer/analytics",
-      icon: BarChart3,
-      active: pathname === "/organizer/analytics",
-    },
-    {
-      label: "Create Event",
-      href: "/organizer/events/create",
-      icon: PlusCircle,
-      active: pathname === "/organizer/events/create",
+      active: pathname.startsWith("/organizer"),
     },
   ];
 
@@ -44,16 +38,16 @@ export function OrganizerNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand & Console Badge */}
         <div className="flex items-center gap-3">
-          <Link href="/organizer" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-xs">
-              <GraduationCap className="h-5 w-5" />
+          <Link href="/admin" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-destructive text-destructive-foreground shadow-xs">
+              <ShieldCheck className="h-5 w-5" />
             </div>
             <span className="text-lg font-bold tracking-tight text-foreground">
               Univent
             </span>
           </Link>
-          <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Organizer Console
+          <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive uppercase tracking-wider">
+            Admin Console
           </span>
         </div>
 
@@ -67,7 +61,7 @@ export function OrganizerNav() {
                   variant={link.active ? "secondary" : "ghost"}
                   size="sm"
                   className={`gap-1.5 text-xs font-medium ${
-                    link.active ? "text-foreground" : "text-muted-foreground"
+                    link.active ? "text-foreground font-semibold" : "text-muted-foreground"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -84,15 +78,25 @@ export function OrganizerNav() {
           <Link href="/events">
             <Button variant="ghost" size="sm" className="hidden gap-1 text-xs sm:flex">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Public Catalog
+              Public View
             </Button>
           </Link>
-          <div className="text-right">
-            <p className="text-xs font-semibold text-foreground">{user?.name || "Organizer"}</p>
-            <p className="text-[10px] text-muted-foreground">{user?.department || "Event Lead"}</p>
+          <div className="hidden text-right sm:block">
+            <p className="text-xs font-semibold text-foreground">
+              {user?.name || "System Admin"}
+            </p>
+            <p className="text-[10px] text-destructive font-medium">
+              Administrator
+            </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => logout()}>
-            Sign Out
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => logout()}
+            className="gap-1.5 text-xs"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
       </div>

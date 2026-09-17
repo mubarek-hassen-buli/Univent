@@ -7,6 +7,7 @@ export * from './events.schema.js';
 export * from './registrations.schema.js';
 export * from './attendance.schema.js';
 export * from './certificates.schema.js';
+export * from './notifications.schema.js';
 
 // Relational Definitions
 export * from './relations.js';
@@ -18,6 +19,7 @@ import type { events } from './events.schema.js';
 import type { registrations } from './registrations.schema.js';
 import type { attendance } from './attendance.schema.js';
 import type { certificates } from './certificates.schema.js';
+import type { notifications } from './notifications.schema.js';
 
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
@@ -45,3 +47,6 @@ export type NewAttendance = typeof attendance.$inferInsert;
 
 export type Certificate = typeof certificates.$inferSelect;
 export type NewCertificate = typeof certificates.$inferInsert;
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

@@ -4,11 +4,13 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { DatabaseService } from '../../database/database.service.js';
+import { PusherService } from '../../common/pusher/pusher.service.js';
 import { registrations } from '../../database/schema/registrations.schema.js';
 import { events } from '../../database/schema/events.schema.js';
 import { attendance } from '../../database/schema/attendance.schema.js';
@@ -22,12 +24,20 @@ export class RegistrationsService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
+    @Optional() private readonly pusherService?: PusherService,
   ) {
     this.qrSecret = this.configService.getOrThrow<string>('QR_HMAC_SECRET');
   }
 
   private get db() {
     return this.databaseService.db;
+  }
+
+  /**
+   * Generates a unique, readable registration ticket code (e.g. UNIV-A1B2C3D4)
+   */
+  generateRegistrationCode(): string {
+    return `UNIV-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   }
 
   /**
@@ -126,7 +136,7 @@ export class RegistrationsService {
     }
 
     // 3. Execute atomic capacity reservation and registration within a strict transaction
-    return await this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       // Atomic increment with capacity guard: prevents race conditions and overbooking
       const [updatedEvent] = await tx
         .update(events)
@@ -149,21 +159,20 @@ export class RegistrationsService {
 
       if (!updatedEvent) {
         throw new ConflictException(
-          'Seats were filled by concurrent registrations. Event is now sold out.',
+          'Event is sold out. Capacity reached concurrently, please retry.',
         );
       }
 
-      // Generate unique registration code and cryptographic QR token
-      const registrationId = crypto.randomUUID();
-      const randomCode = crypto.randomBytes(3).toString('hex').toUpperCase();
-      const registrationCode = `EVT-${randomCode}`;
-      const qrHash = this.generateQrHash(registrationId, eventId, userId);
+      // Generate cryptographically secure registration code & QR token
+      const registrationCode = this.generateRegistrationCode();
+      const tempId = crypto.randomUUID();
+      const qrHash = this.generateQrHash(tempId, event.id, userId);
 
       const [newRegistration] = await tx
         .insert(registrations)
         .values({
-          id: registrationId,
-          eventId,
+          id: tempId,
+          eventId: event.id,
           userId,
           registrationCode,
           qrHash,
@@ -184,6 +193,20 @@ export class RegistrationsService {
         },
       };
     });
+
+    const pusher = this.pusherService;
+    if (pusher) {
+      const remaining = event.capacity - (event.registeredCount + 1);
+      await pusher.trigger(`event-${event.id}`, 'event:seat-update', {
+        eventId: event.id,
+        registeredCount: event.registeredCount + 1,
+        capacity: event.capacity,
+        remainingSeats: Math.max(remaining, 0),
+        isSoldOut: remaining <= 0,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -312,7 +335,7 @@ export class RegistrationsService {
       throw new NotFoundException('Active registration not found to cancel');
     }
 
-    return await this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       // 1. Mark registration as CANCELLED
       const [cancelledReg] = await tx
         .update(registrations)
@@ -338,6 +361,34 @@ export class RegistrationsService {
         registration: cancelledReg,
       };
     });
+
+    const pusher = this.pusherService;
+    if (pusher) {
+      const [updatedEvent] = await this.db
+        .select({
+          capacity: events.capacity,
+          registeredCount: events.registeredCount,
+        })
+        .from(events)
+        .where(eq(events.id, existing.eventId));
+
+      if (updatedEvent) {
+        const remaining = updatedEvent.capacity - updatedEvent.registeredCount;
+        await pusher.trigger(
+          `event-${existing.eventId}`,
+          'event:seat-update',
+          {
+            eventId: existing.eventId,
+            registeredCount: updatedEvent.registeredCount,
+            capacity: updatedEvent.capacity,
+            remainingSeats: Math.max(remaining, 0),
+            isSoldOut: remaining <= 0,
+          },
+        );
+      }
+    }
+
+    return result;
   }
 
   /**
