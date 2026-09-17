@@ -16,6 +16,9 @@ import {
   Layers,
   ArrowUpRight,
 } from "lucide-react";
+import { ChartBarInteractive } from "@/components/analytics/chart-bar-interactive";
+import { ChartPieDonutActive } from "@/components/analytics/chart-pie-donut-active";
+import { ChartRadialStacked } from "@/components/analytics/chart-radial-stacked";
 
 export default function AdminDashboardPage() {
   const { data: analytics, isLoading, error } = useAdminAnalytics();
@@ -154,87 +157,80 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Middle Row: Events by Status & Category Distribution */}
+      {/* Chart 1: Interactive Bar Chart (30-day velocity with real data) */}
+      <ChartBarInteractive
+        title="Platform Registration & Check-in Velocity"
+        description="Daily student registrations vs scanned attendance check-ins over the past 30 days"
+        data={analytics.timeline || []}
+        totalRegistrations={overview.totalRegistrations}
+        totalAttendance={overview.totalAttendance}
+      />
+
+      {/* Visual Analytics Row: Donut Active + Radial Stacked + Status Distribution */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Status Distribution */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Layers className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold text-foreground">Events by Status</h2>
-          </div>
+        {/* Chart 2: Donut Active Sector (Category Distribution) */}
+        <ChartPieDonutActive
+          title="Category Distribution"
+          description="Campus engagement across activity domains"
+          data={categoryDistribution.map((cat) => ({
+            name: cat.name,
+            value: cat.eventCount,
+          }))}
+          footerDescription="Real-time distribution across active categories"
+        />
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
-              <span className="text-xs font-medium text-foreground">Published & Active</span>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500">
-                {eventsByStatus.published}
-              </span>
+        {/* Chart 3: Radial Stacked (Turnout & Attendance Gauge) */}
+        <ChartRadialStacked
+          title="Platform Turnout Gauge"
+          description="Admitted attendance vs pending check-ins"
+          attended={overview.totalAttendance}
+          totalRegistrations={overview.totalRegistrations}
+          turnoutRate={overview.platformAttendanceRate}
+          footerDescription="Platform-wide attendance conversion"
+        />
+
+        {/* Status Distribution Breakdown */}
+        <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-6">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Lifecycle Status</h2>
             </div>
 
-            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
-              <span className="text-xs font-medium text-foreground">Completed</span>
-              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-500">
-                {eventsByStatus.completed}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
-              <span className="text-xs font-medium text-foreground">Drafts Pending</span>
-              <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
-                {eventsByStatus.draft}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
-              <span className="text-xs font-medium text-foreground">Cancelled</span>
-              <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
-                {eventsByStatus.cancelled}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Category Breakdown */}
-        <div className="rounded-xl border border-border bg-card p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold text-foreground">Category Popularity</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {categoryDistribution.length} active categories
-            </span>
-          </div>
-
-          {categoryDistribution.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              No categories configured yet.
-            </div>
-          ) : (
             <div className="space-y-3">
-              {categoryDistribution.map((cat) => {
-                const percentage = overview.totalEvents > 0
-                  ? Math.round((cat.eventCount / overview.totalEvents) * 100)
-                  : 0;
-                return (
-                  <div key={cat.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-foreground">{cat.name}</span>
-                      <span className="text-muted-foreground">
-                        {cat.eventCount} events ({percentage}%)
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-500"
-                        style={{ width: `${Math.max(percentage, 3)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+                <span className="text-xs font-medium text-foreground">Published & Active</span>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500">
+                  {eventsByStatus.published}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+                <span className="text-xs font-medium text-foreground">Completed</span>
+                <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-500">
+                  {eventsByStatus.completed}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+                <span className="text-xs font-medium text-foreground">Drafts Pending</span>
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-500">
+                  {eventsByStatus.draft}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3">
+                <span className="text-xs font-medium text-foreground">Cancelled</span>
+                <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
+                  {eventsByStatus.cancelled}
+                </span>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border/50 text-[11px] text-muted-foreground text-center">
+            {overview.totalEvents} total events managed on Univent
+          </div>
         </div>
       </div>
 

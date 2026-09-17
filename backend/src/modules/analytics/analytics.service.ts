@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc, count, sql } from 'drizzle-orm';
+import { eq, and, desc, count, sql, gte } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service.js';
 import { events } from '../../database/schema/events.schema.js';
 import { user } from '../../database/schema/auth.schema.js';
@@ -8,6 +8,42 @@ import { attendance } from '../../database/schema/attendance.schema.js';
 import { certificates } from '../../database/schema/certificates.schema.js';
 import { categories } from '../../database/schema/categories.schema.js';
 
+export interface ActivityTimelinePoint {
+  date: string;
+  registrations: number;
+  attendance: number;
+}
+
+function build30DayTimeline(
+  regRows: Array<{ date: string; count: number | string }>,
+  attRows: Array<{ date: string; count: number | string }>,
+): ActivityTimelinePoint[] {
+  const regMap = new Map<string, number>();
+  for (const row of regRows) {
+    regMap.set(row.date, Number(row.count || 0));
+  }
+
+  const attMap = new Map<string, number>();
+  for (const row of attRows) {
+    attMap.set(row.date, Number(row.count || 0));
+  }
+
+  const timeline: ActivityTimelinePoint[] = [];
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    timeline.push({
+      date: dateStr,
+      registrations: regMap.get(dateStr) || 0,
+      attendance: attMap.get(dateStr) || 0,
+    });
+  }
+
+  return timeline;
+}
+
 export interface OrganizerAnalytics {
   totalEvents: number;
   totalCapacity: number;
@@ -15,6 +51,17 @@ export interface OrganizerAnalytics {
   totalAttended: number;
   overallAttendanceRate: number;
   overallOccupancyRate: number;
+  statusDistribution: {
+    published: number;
+    draft: number;
+    completed: number;
+    cancelled: number;
+  };
+  categoryDistribution: Array<{
+    name: string;
+    eventCount: number;
+  }>;
+  timeline: ActivityTimelinePoint[];
   eventPerformance: Array<{
     id: string;
     title: string;
@@ -53,6 +100,7 @@ export interface AdminAnalytics {
     name: string;
     eventCount: number;
   }>;
+  timeline: ActivityTimelinePoint[];
   recentActivity: {
     latestEvents: Array<{
       id: string;
@@ -128,6 +176,62 @@ export class AnalyticsService {
       (totalRegistrations / Math.max(totalCapacity, 1)) * 100,
     );
 
+    // 2. Status distribution
+    const statusDistribution = {
+      published: orgEvents.filter((e) => e.status === 'PUBLISHED').length,
+      draft: orgEvents.filter((e) => e.status === 'DRAFT').length,
+      completed: orgEvents.filter((e) => e.status === 'COMPLETED').length,
+      cancelled: orgEvents.filter((e) => e.status === 'CANCELLED').length,
+    };
+
+    // 3. Category distribution
+    const categoryCountMap = new Map<string, number>();
+    for (const evt of orgEvents) {
+      const catName = evt.category?.name || 'General';
+      categoryCountMap.set(catName, (categoryCountMap.get(catName) || 0) + 1);
+    }
+    const categoryDistribution = Array.from(categoryCountMap.entries()).map(
+      ([name, eventCount]) => ({
+        name,
+        eventCount,
+      }),
+    );
+
+    // 4. 30-day activity timeline for organizer
+    const orgRegByDate = await db
+      .select({
+        date: sql<string>`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`,
+        count: count(),
+      })
+      .from(registrations)
+      .innerJoin(events, eq(registrations.eventId, events.id))
+      .where(
+        and(
+          eq(events.organizerId, organizerId),
+          gte(registrations.registeredAt, sql`NOW() - INTERVAL '30 days'`),
+        ),
+      )
+      .groupBy(sql`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`);
+
+    const orgAttByDate = await db
+      .select({
+        date: sql<string>`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`,
+        count: count(),
+      })
+      .from(attendance)
+      .innerJoin(events, eq(attendance.eventId, events.id))
+      .where(
+        and(
+          eq(events.organizerId, organizerId),
+          gte(attendance.scannedAt, sql`NOW() - INTERVAL '30 days'`),
+        ),
+      )
+      .groupBy(sql`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`);
+
+    const timeline = build30DayTimeline(orgRegByDate, orgAttByDate);
+
     return {
       totalEvents,
       totalCapacity,
@@ -135,6 +239,9 @@ export class AnalyticsService {
       totalAttended,
       overallAttendanceRate,
       overallOccupancyRate,
+      statusDistribution,
+      categoryDistribution,
+      timeline,
       eventPerformance,
     };
   }
@@ -193,7 +300,30 @@ export class AnalyticsService {
       eventCount: c.events.length,
     }));
 
-    // 5. Recent Activity
+    // 5. 30-day activity timeline platform-wide
+    const adminRegByDate = await db
+      .select({
+        date: sql<string>`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`,
+        count: count(),
+      })
+      .from(registrations)
+      .where(gte(registrations.registeredAt, sql`NOW() - INTERVAL '30 days'`))
+      .groupBy(sql`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${registrations.registeredAt}, 'YYYY-MM-DD')`);
+
+    const adminAttByDate = await db
+      .select({
+        date: sql<string>`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`,
+        count: count(),
+      })
+      .from(attendance)
+      .where(gte(attendance.scannedAt, sql`NOW() - INTERVAL '30 days'`))
+      .groupBy(sql`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${attendance.scannedAt}, 'YYYY-MM-DD')`);
+
+    const timeline = build30DayTimeline(adminRegByDate, adminAttByDate);
+
+    // 6. Recent Activity
     const latestEvents = allEvents.slice(0, 5).map((e) => ({
       id: e.id,
       title: e.title,
@@ -239,6 +369,7 @@ export class AnalyticsService {
         cancelled: cancelledEvents,
       },
       categoryDistribution,
+      timeline,
       recentActivity: {
         latestEvents,
         latestCertificates,

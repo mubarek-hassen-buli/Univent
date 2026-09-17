@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, type ApiSuccessResponse } from '@/lib/api/client';
 
+export interface ActivityTimelinePoint {
+  date: string;
+  registrations: number;
+  attendance: number;
+}
+
 export interface OrganizerAnalyticsData {
   totalEvents: number;
   totalCapacity: number;
@@ -8,6 +14,17 @@ export interface OrganizerAnalyticsData {
   totalAttended: number;
   overallAttendanceRate: number;
   overallOccupancyRate: number;
+  statusDistribution: {
+    published: number;
+    draft: number;
+    completed: number;
+    cancelled: number;
+  };
+  categoryDistribution: Array<{
+    name: string;
+    eventCount: number;
+  }>;
+  timeline: ActivityTimelinePoint[];
   eventPerformance: Array<{
     id: string;
     title: string;
@@ -46,6 +63,7 @@ export interface AdminAnalyticsData {
     name: string;
     eventCount: number;
   }>;
+  timeline: ActivityTimelinePoint[];
   recentActivity: {
     latestEvents: Array<{
       id: string;

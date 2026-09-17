@@ -19,6 +19,9 @@ import { useOrganizerAnalytics } from "@/lib/query/analytics.query";
 import { useAuth } from "@/hooks/use-auth";
 import { usePusherChannel } from "@/hooks/use-pusher";
 import { useQueryClient } from "@tanstack/react-query";
+import { ChartBarInteractive } from "@/components/analytics/chart-bar-interactive";
+import { ChartPieDonutActive } from "@/components/analytics/chart-pie-donut-active";
+import { ChartRadialStacked } from "@/components/analytics/chart-radial-stacked";
 
 export default function OrganizerAnalyticsPage() {
   const { user } = useAuth();
@@ -181,6 +184,53 @@ export default function OrganizerAnalyticsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Chart 1: Interactive Bar Chart (30-day velocity with real data) */}
+      <ChartBarInteractive
+        title="Event Registration & Check-in Velocity"
+        description="Daily participant ticket registrations vs verified entrance check-ins over the past 30 days"
+        data={analytics.timeline || []}
+        totalRegistrations={analytics.totalRegistrations}
+        totalAttendance={analytics.totalAttended}
+      />
+
+      {/* Visual Analytics Row: Donut Active + Radial Stacked */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Chart 2: Donut Active Sector (Event Portfolio Breakdown) */}
+        <ChartPieDonutActive
+          title="Portfolio Status & Category Distribution"
+          description="Lifecycle status and category volume for your organized events"
+          data={
+            [
+              { name: "Published", value: analytics.statusDistribution?.published || 0 },
+              { name: "Completed", value: analytics.statusDistribution?.completed || 0 },
+              { name: "Drafts", value: analytics.statusDistribution?.draft || 0 },
+              { name: "Cancelled", value: analytics.statusDistribution?.cancelled || 0 },
+            ].filter((i) => i.value > 0).length > 0
+              ? [
+                  { name: "Published", value: analytics.statusDistribution?.published || 0 },
+                  { name: "Completed", value: analytics.statusDistribution?.completed || 0 },
+                  { name: "Drafts", value: analytics.statusDistribution?.draft || 0 },
+                  { name: "Cancelled", value: analytics.statusDistribution?.cancelled || 0 },
+                ].filter((i) => i.value > 0)
+              : (analytics.categoryDistribution || []).map((c) => ({
+                  name: c.name,
+                  value: c.eventCount,
+                }))
+          }
+          footerDescription="Active portfolio management breakdown"
+        />
+
+        {/* Chart 3: Radial Stacked (Turnout & Attendance Gauge) */}
+        <ChartRadialStacked
+          title="Turnout & Attendance Gauge"
+          description="Admitted attendees vs pending registered participants"
+          attended={analytics.totalAttended}
+          totalRegistrations={analytics.totalRegistrations}
+          turnoutRate={analytics.overallAttendanceRate}
+          footerDescription="Entrance check-in fulfillment across your events"
+        />
       </div>
 
       {/* Event Breakdown Table */}
