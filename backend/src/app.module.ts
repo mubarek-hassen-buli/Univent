@@ -6,6 +6,7 @@ import { UsersModule } from './modules/users/users.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
+import { RegistrationsModule } from './modules/registrations/registrations.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
@@ -18,6 +19,7 @@ import { AppService } from './app.service.js';
     CategoriesModule,
     EventsModule,
     UploadsModule,
+    RegistrationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
