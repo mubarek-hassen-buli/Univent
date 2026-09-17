@@ -13,7 +13,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('PORT') ?? 5000;
+  const port = process.env.PORT
+    ? parseInt(process.env.PORT, 10)
+    : (configService.get<number>('PORT') ?? 5000);
   const frontendUrl = configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
 
   // Security Headers
@@ -23,8 +25,16 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
 
   // CORS setup
+  const allowedOrigins = Array.from(
+    new Set([
+      frontendUrl,
+      frontendUrl.replace(/\/$/, ''),
+      'http://localhost:3000',
+    ])
+  ).filter(Boolean);
+
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key'],
@@ -43,8 +53,9 @@ async function bootstrap(): Promise<void> {
   // Graceful shutdown
   app.enableShutdownHooks();
 
-  await app.listen(port);
-  logger.log(`Univent Backend API is running on http://localhost:${port}/api`);
+  // Listen on 0.0.0.0 for containerized / cloud hosting (Render, Railway, Fly)
+  await app.listen(port, '0.0.0.0');
+  logger.log(`Univent Backend API is running on port ${port} (0.0.0.0)`);
 }
 
 bootstrap().catch((err: unknown) => {
