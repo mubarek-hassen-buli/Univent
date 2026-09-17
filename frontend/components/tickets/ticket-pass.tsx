@@ -219,10 +219,16 @@ export function TicketPass({ ticket, variant = "full", onCancelled }: TicketPass
               <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
                 {ticket.event.title}
               </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Organized by {ticket.organizer.name}
-                {ticket.organizer.department ? ` (${ticket.organizer.department})` : ""}
-              </p>
+              {ticket.organizer?.name ? (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Organized by {ticket.organizer.name}
+                  {ticket.organizer.department ? ` (${ticket.organizer.department})` : ""}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  University Event Pass
+                </p>
+              )}
             </div>
 
             {/* Date & Location Grid */}

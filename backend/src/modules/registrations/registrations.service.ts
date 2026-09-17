@@ -16,6 +16,7 @@ import { events } from '../../database/schema/events.schema.js';
 import { attendance } from '../../database/schema/attendance.schema.js';
 import { user } from '../../database/schema/auth.schema.js';
 import { categories } from '../../database/schema/categories.schema.js';
+import { alias } from 'drizzle-orm/pg-core';
 
 @Injectable()
 export class RegistrationsService {
@@ -261,6 +262,8 @@ export class RegistrationsService {
    * Retrieves a single ticket with full digital pass details
    */
   async getTicketById(userId: string, userRole: string, registrationId: string) {
+    const organizerUser = alias(user, 'organizer_user');
+
     const [ticket] = await this.db
       .select({
         id: registrations.id,
@@ -287,11 +290,21 @@ export class RegistrationsService {
           bannerUrl: events.bannerUrl,
           organizerId: events.organizerId,
         },
+        organizer: {
+          name: organizerUser.name,
+          department: organizerUser.department,
+        },
+        category: {
+          name: categories.name,
+          slug: categories.slug,
+        },
         attendedAt: attendance.scannedAt,
       })
       .from(registrations)
       .innerJoin(events, eq(registrations.eventId, events.id))
       .innerJoin(user, eq(registrations.userId, user.id))
+      .innerJoin(organizerUser, eq(events.organizerId, organizerUser.id))
+      .leftJoin(categories, eq(events.categoryId, categories.id))
       .leftJoin(attendance, eq(attendance.registrationId, registrations.id))
       .where(eq(registrations.id, registrationId))
       .limit(1);
