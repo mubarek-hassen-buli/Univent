@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function StudentNav() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   const navLinks = [
     {
@@ -79,18 +79,8 @@ export function StudentNav() {
         </nav>
 
         {/* Student Profile Info & Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <NotificationBell />
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-semibold text-foreground">
-              {user?.name || "Student"}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {user?.studentId
-                ? `ID: ${user.studentId}`
-                : user?.department || "Enrolled Student"}
-            </p>
-          </div>
           <Button
             variant="outline"
             size="sm"

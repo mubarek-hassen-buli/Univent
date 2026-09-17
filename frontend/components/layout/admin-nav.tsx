@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function AdminNav() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   const navLinks = [
     {
@@ -73,7 +73,7 @@ export function AdminNav() {
         </nav>
 
         {/* User Status & Notifications */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <NotificationBell />
           <Link href="/events">
             <Button variant="ghost" size="sm" className="hidden gap-1 text-xs sm:flex">
@@ -81,14 +81,6 @@ export function AdminNav() {
               Public View
             </Button>
           </Link>
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-semibold text-foreground">
-              {user?.name || "System Admin"}
-            </p>
-            <p className="text-[10px] text-destructive font-medium">
-              Administrator
-            </p>
-          </div>
           <Button
             variant="outline"
             size="sm"

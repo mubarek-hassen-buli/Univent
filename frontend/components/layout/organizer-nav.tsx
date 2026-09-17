@@ -3,14 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, Calendar, PlusCircle, BarChart3, ArrowLeft } from "lucide-react";
+import { GraduationCap, LayoutDashboard, Calendar, PlusCircle, BarChart3, ArrowLeft, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
 
 export function OrganizerNav() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   const navLinks = [
     {
@@ -79,7 +79,7 @@ export function OrganizerNav() {
         </nav>
 
         {/* User Status & Notifications */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <NotificationBell />
           <Link href="/events">
             <Button variant="ghost" size="sm" className="hidden gap-1 text-xs sm:flex">
@@ -87,12 +87,14 @@ export function OrganizerNav() {
               Public Catalog
             </Button>
           </Link>
-          <div className="text-right">
-            <p className="text-xs font-semibold text-foreground">{user?.name || "Organizer"}</p>
-            <p className="text-[10px] text-muted-foreground">{user?.department || "Event Lead"}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => logout()}>
-            Sign Out
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => logout()}
+            className="gap-1.5 text-xs"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
       </div>
