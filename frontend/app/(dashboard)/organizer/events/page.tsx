@@ -12,6 +12,7 @@ import {
   Loader2,
   Users,
   MapPin,
+  QrCode,
 } from "lucide-react";
 
 export default function OrganizerEventsPage() {
@@ -148,6 +149,17 @@ export default function OrganizerEventsPage() {
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Link href={`/organizer/events/${evt.id}/scanner`}>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              className="gap-1 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                              title="Open Live Entrance Scanner"
+                            >
+                              <QrCode className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Scanner</span>
+                            </Button>
+                          </Link>
                           <Link href={`/events/${evt.slug}`} target="_blank">
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="View Public Page">
                               <ExternalLink className="h-4 w-4" />
