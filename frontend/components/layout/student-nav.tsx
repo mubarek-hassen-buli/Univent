@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, Ticket, Compass, LogOut } from "lucide-react";
+import { GraduationCap, LayoutDashboard, Ticket, Award, Compass, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -19,10 +19,16 @@ export function StudentNav() {
       active: pathname === "/student",
     },
     {
-      label: "My Event Passes",
+      label: "My Passes",
       href: "/student/tickets",
       icon: Ticket,
       active: pathname.startsWith("/student/tickets"),
+    },
+    {
+      label: "Certificates",
+      href: "/student/certificates",
+      icon: Award,
+      active: pathname.startsWith("/student/certificates"),
     },
     {
       label: "Browse Events",

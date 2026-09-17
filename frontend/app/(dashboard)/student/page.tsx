@@ -18,11 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyTickets } from "@/lib/query/registrations.query";
+import { useMyCertificates } from "@/lib/query/certificates.query";
 import { TicketPass } from "@/components/tickets/ticket-pass";
 
 export default function StudentDashboardPage() {
   const { user } = useAuth();
   const { data: tickets = [], isLoading } = useMyTickets();
+  const { data: certificates = [] } = useMyCertificates();
 
   const activeTickets = tickets.filter(
     (t) => t.status === "CONFIRMED" && !t.hasAttended,
@@ -62,11 +64,17 @@ export default function StudentDashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/student/tickets">
               <Button variant="secondary" className="gap-2">
                 <Ticket className="h-4 w-4" />
                 My Passes
+              </Button>
+            </Link>
+            <Link href="/student/certificates">
+              <Button variant="outline" className="gap-2">
+                <Award className="h-4 w-4" />
+                Certificates ({certificates.length})
               </Button>
             </Link>
             <Link href="/events">
@@ -80,7 +88,7 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -119,12 +127,33 @@ export default function StudentDashboardPage() {
           </div>
         </div>
 
+        <Link href="/student/certificates" className="block">
+          <div className="rounded-xl border border-border bg-card p-5 transition hover:border-primary/50 hover:shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Certificates
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Award className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl font-bold text-foreground sm:text-3xl">
+                {isLoading ? "..." : certificates.length}
+              </span>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Earned credentials &rarr;
+              </p>
+            </div>
+          </div>
+        </Link>
+
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Registrations
+              Registrations
             </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <GraduationCap className="h-4 w-4" />
             </div>
           </div>
@@ -133,7 +162,7 @@ export default function StudentDashboardPage() {
               {isLoading ? "..." : totalRegistrations}
             </span>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Lifetime event reservations
+              Lifetime reservations
             </p>
           </div>
         </div>

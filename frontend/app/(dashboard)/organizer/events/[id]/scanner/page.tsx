@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Loader2,
   Radio,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QrScanner } from "@/components/scanner/qr-scanner";
@@ -26,6 +27,7 @@ import {
   useScanTicket,
   type ScanResultResponse,
 } from "@/lib/query/attendance.query";
+import { useBatchIssueCertificates } from "@/lib/query/certificates.query";
 import { feedback } from "@/lib/utils/sound";
 import { getPusherClient } from "@/lib/pusher/pusher-client";
 
@@ -54,6 +56,7 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
   const { data: roster = [], isLoading: isRosterLoading, refetch: refetchRoster } =
     useEventRoster(eventId);
   const scanMutation = useScanTicket();
+  const batchIssueMutation = useBatchIssueCertificates();
 
   // Local state
   const [manualCode, setManualCode] = useState("");
@@ -62,6 +65,23 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
   const [activeTab, setActiveTab] = useState<"feed" | "roster">("feed");
   const [rosterSearch, setRosterSearch] = useState("");
   const [rosterFilter, setRosterFilter] = useState<"all" | "pending" | "attended">("all");
+
+  const handleBatchIssueCertificates = async () => {
+    if (batchIssueMutation.isPending) return;
+    try {
+      const res = await batchIssueMutation.mutateAsync(eventId);
+      setLastNotification({
+        type: "success",
+        message: `Successfully issued ${res.issuedCount} verified academic certificates for attended participants!`,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      setLastNotification({
+        type: "error",
+        message: err.response?.data?.message || "Failed to issue certificates.",
+      });
+    }
+  };
 
   // Real-time Pusher subscription
   useEffect(() => {
@@ -255,8 +275,24 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
           </h1>
         </div>
 
-        {/* Audio Toggle */}
-        <div className="flex items-center gap-2">
+        {/* Header Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleBatchIssueCertificates}
+            disabled={batchIssueMutation.isPending || checkedInCount === 0}
+            className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+            title="Batch-issue verified certificates to all attended participants"
+          >
+            {batchIssueMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Award className="h-3.5 w-3.5" />
+            )}
+            <span>Issue Certificates ({checkedInCount})</span>
+          </Button>
+
           <Button
             size="sm"
             variant={soundEnabled ? "secondary" : "outline"}

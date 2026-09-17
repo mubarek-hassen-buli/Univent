@@ -9,6 +9,7 @@ import { UploadsModule } from './modules/uploads/uploads.module.js';
 import { RegistrationsModule } from './modules/registrations/registrations.module.js';
 import { PusherModule } from './common/pusher/pusher.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
+import { CertificatesModule } from './modules/certificates/certificates.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
@@ -24,6 +25,7 @@ import { AppService } from './app.service.js';
     UploadsModule,
     RegistrationsModule,
     AttendanceModule,
+    CertificatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
