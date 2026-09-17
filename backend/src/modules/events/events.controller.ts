@@ -61,6 +61,15 @@ export class EventsController {
     );
   }
 
+  @Get('admin/all-events')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async listAdminAllEvents(
+    @Query(new ZodValidationPipe(queryEventsSchema)) query: QueryEventsDto,
+  ) {
+    return this.eventsService.listEvents(query, false);
+  }
+
   @Get(':slug')
   @Public()
   async getEventBySlug(@Param('slug') slug: string) {

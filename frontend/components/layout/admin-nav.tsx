@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, LayoutDashboard, Calendar, Compass, LogOut, ArrowLeft } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, Calendar, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -21,15 +21,9 @@ export function AdminNav() {
     },
     {
       label: "All Events",
-      href: "/events",
-      icon: Compass,
-      active: pathname === "/events",
-    },
-    {
-      label: "Organizer View",
-      href: "/organizer",
+      href: "/admin/events",
       icon: Calendar,
-      active: pathname.startsWith("/organizer"),
+      active: pathname.startsWith("/admin/events"),
     },
   ];
 
@@ -75,12 +69,6 @@ export function AdminNav() {
         {/* User Status & Notifications */}
         <div className="flex items-center gap-2.5">
           <NotificationBell />
-          <Link href="/events">
-            <Button variant="ghost" size="sm" className="hidden gap-1 text-xs sm:flex">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Public View
-            </Button>
-          </Link>
           <Button
             variant="outline"
             size="sm"

@@ -49,6 +49,7 @@ export interface QueryEventsParams {
   search?: string;
   categoryId?: string;
   isOnline?: boolean;
+  status?: string;
 }
 
 export interface CreateEventInput {
@@ -134,6 +135,39 @@ export function useDeleteEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['my-events'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
     },
   });
 }
+
+export function useAdminEvents(params?: QueryEventsParams) {
+  return useQuery({
+    queryKey: ['admin-events', params],
+    queryFn: async () => {
+      const response = await apiClient.get<ApiSuccessResponse<EventsResponse>>(
+        '/events/admin/all-events',
+        { params },
+      );
+      return response.data.data;
+    },
+  });
+}
+
+export function useUpdateEventStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ eventId, status }: { eventId: string; status: string }) => {
+      const response = await apiClient.patch(`/events/${eventId}/status`, { status });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['my-events'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    },
+  });
+}
+

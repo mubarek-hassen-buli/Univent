@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, Calendar, PlusCircle, BarChart3, ArrowLeft, LogOut } from "lucide-react";
+import { GraduationCap, LayoutDashboard, Calendar, PlusCircle, BarChart3, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -81,12 +81,6 @@ export function OrganizerNav() {
         {/* User Status & Notifications */}
         <div className="flex items-center gap-2.5">
           <NotificationBell />
-          <Link href="/events">
-            <Button variant="ghost" size="sm" className="hidden gap-1 text-xs sm:flex">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Public Catalog
-            </Button>
-          </Link>
           <Button
             variant="outline"
             size="sm"

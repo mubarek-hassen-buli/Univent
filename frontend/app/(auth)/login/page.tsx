@@ -46,8 +46,15 @@ export default function LoginPage() {
         return;
       }
 
-      // Successful login - redirect to student/organizer/admin portal
-      router.push("/student");
+      // Successful login - redirect to student/organizer/admin portal based on role
+      const userRole = response.data?.user?.role;
+      const target =
+        userRole === "admin"
+          ? "/admin"
+          : userRole === "organizer"
+            ? "/organizer"
+            : "/student";
+      router.push(target);
       router.refresh();
     } catch (err: unknown) {
       setServerError(

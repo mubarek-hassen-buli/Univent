@@ -244,7 +244,7 @@ export default function AdminDashboardPage() {
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-foreground">Recent Events</h2>
-            <Link href="/events">
+            <Link href="/admin/events">
               <Button variant="ghost" size="sm" className="gap-1 text-xs">
                 View All
                 <ArrowUpRight className="h-3 w-3" />

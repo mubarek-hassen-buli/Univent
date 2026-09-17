@@ -50,13 +50,8 @@ export default function AdminLayout({
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/student">
-              <Button variant="outline" size="sm">
-                Student Portal
-              </Button>
-            </Link>
-            <Link href="/events">
               <Button size="sm">
-                Public Catalog
+                Student Portal
               </Button>
             </Link>
           </div>
