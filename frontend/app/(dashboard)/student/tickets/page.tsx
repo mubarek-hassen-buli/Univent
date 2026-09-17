@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -35,33 +35,66 @@ function TicketsContent() {
     message: string;
   } | null>(null);
 
+  const registeredEventRef = useRef<string | null>(null);
+
   // Auto-trigger registration when redirected with ?register=[eventId]
   useEffect(() => {
-    if (registerEventId && !registerMutation.isPending) {
-      registerMutation.mutate(registerEventId, {
-        onSuccess: (data) => {
+    if (!registerEventId) return;
+
+    // Prevent duplicate triggers in StrictMode or fast re-renders
+    if (registeredEventRef.current === registerEventId) return;
+    registeredEventRef.current = registerEventId;
+
+    // If user already has this ticket in cache/state
+    const alreadyRegistered = tickets.some(
+      (t) => t.event.id === registerEventId && t.status === "CONFIRMED",
+    );
+    if (alreadyRegistered) {
+      setRegistrationNotice({
+        type: "success",
+        message: "You are already registered for this event. Your active boarding pass is displayed below.",
+      });
+      router.replace("/student/tickets", { scroll: false });
+      return;
+    }
+
+    registerMutation.mutate(registerEventId, {
+      onSuccess: (data) => {
+        setRegistrationNotice({
+          type: "success",
+          message: `Seat confirmed for "${data.event.title}"! Your digital boarding pass has been issued.`,
+        });
+        // Clean URL without register param
+        router.replace("/student/tickets", { scroll: false });
+        refetch();
+      },
+      onError: (err: unknown) => {
+        const errorObj = err as {
+          response?: { status?: number; data?: { message?: string | string[] } };
+          statusCode?: number;
+          message?: string;
+        };
+        const status = errorObj.statusCode || errorObj.response?.status;
+        const rawMsg = errorObj.response?.data?.message || errorObj.message;
+        const msgStr = Array.isArray(rawMsg) ? rawMsg.join(", ") : rawMsg || "";
+
+        // If 409 conflict because already registered
+        if (status === 409 || msgStr.toLowerCase().includes("already registered")) {
           setRegistrationNotice({
             type: "success",
-            message: `Seat confirmed for "${data.event.title}"! Your digital boarding pass has been issued.`,
+            message: "Seat confirmed! You already have an active reservation for this event.",
           });
-          // Clean URL without register param
-          router.replace("/student/tickets");
           refetch();
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (err: any) => {
-          const message =
-            err.response?.data?.message ||
-            "Unable to reserve ticket. The event may be sold out or already registered.";
+        } else {
           setRegistrationNotice({
             type: "error",
-            message,
+            message: msgStr || "Unable to reserve ticket. The event may be sold out.",
           });
-          router.replace("/student/tickets");
-        },
-      });
-    }
-  }, [registerEventId]);
+        }
+        router.replace("/student/tickets", { scroll: false });
+      },
+    });
+  }, [registerEventId, tickets, registerMutation, refetch, router]);
 
   // Filtered tickets
   const filteredTickets = tickets.filter((ticket) => {

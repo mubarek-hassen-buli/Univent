@@ -50,7 +50,12 @@ apiClient.interceptors.response.use(
       const formattedMessage = Array.isArray(serverError.message)
         ? serverError.message.join(', ')
         : serverError.message || 'An unexpected error occurred';
-      return Promise.reject(new Error(formattedMessage));
+      const customError = new Error(formattedMessage);
+      Object.assign(customError, {
+        response: error.response,
+        statusCode: error.response.status,
+      });
+      return Promise.reject(customError);
     }
     return Promise.reject(new Error(error.message || 'Network error occurred'));
   },
