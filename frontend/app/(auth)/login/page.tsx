@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signIn } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Home } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid university email address"),
@@ -143,13 +143,22 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-6 border-t border-border pt-5 text-center text-xs text-muted-foreground">
-        Don&apos;t have an account yet?{" "}
+      <div className="mt-6 border-t border-border pt-5 flex flex-col items-center gap-3 text-center text-xs text-muted-foreground">
+        <div>
+          Don&apos;t have an account yet?{" "}
+          <Link
+            href="/register"
+            className="font-medium text-primary hover:underline"
+          >
+            Register here
+          </Link>
+        </div>
         <Link
-          href="/register"
-          className="font-medium text-primary hover:underline"
+          href="/"
+          className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Register here
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to Home</span>
         </Link>
       </div>
     </div>

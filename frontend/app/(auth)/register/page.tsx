@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signUp } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Home } from "lucide-react";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Full name must be at least 2 characters"),
@@ -245,13 +245,22 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <div className="mt-6 border-t border-border pt-5 text-center text-xs text-muted-foreground">
-        Already registered?{" "}
+      <div className="mt-6 border-t border-border pt-5 flex flex-col items-center gap-3 text-center text-xs text-muted-foreground">
+        <div>
+          Already registered?{" "}
+          <Link
+            href="/login"
+            className="font-medium text-primary hover:underline"
+          >
+            Sign in here
+          </Link>
+        </div>
         <Link
-          href="/login"
-          className="font-medium text-primary hover:underline"
+          href="/"
+          className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          Sign in here
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to Home</span>
         </Link>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, ArrowLeft, Home } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -11,6 +11,18 @@ export default function AuthLayout({
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
       {/* Background Subtle Grid Texture */}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30" />
+
+      {/* Top Bar with Back to Home Button */}
+      <div className="absolute top-4 left-4 sm:top-8 sm:left-8 z-20">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/80 px-3.5 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md transition hover:border-primary/50 hover:text-foreground hover:bg-card shadow-xs"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <Home className="h-3.5 w-3.5" />
+          <span>Back to Home</span>
+        </Link>
+      </div>
 
       {/* Header Logo */}
       <div className="relative z-10 mb-8 flex items-center gap-2">
