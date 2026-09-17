@@ -6,6 +6,8 @@ export interface UserItem {
   name: string;
   email: string;
   role: 'student' | 'organizer' | 'admin';
+  phoneNumber?: string | null;
+  isApproved?: boolean;
   studentId?: string | null;
   department?: string | null;
   createdAt: string;
@@ -26,6 +28,7 @@ export interface QueryUsersParams {
   limit?: number;
   search?: string;
   role?: 'student' | 'organizer' | 'admin';
+  isApproved?: boolean;
 }
 
 export interface CreateUserInput {
@@ -33,6 +36,8 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role: 'student' | 'organizer' | 'admin';
+  phoneNumber?: string;
+  isApproved?: boolean;
   studentId?: string;
   department?: string;
 }
@@ -90,6 +95,23 @@ export function useUpdateUserRole() {
     mutationFn: async ({ userId, role }: { userId: string; role: 'student' | 'organizer' | 'admin' }) => {
       const response = await apiClient.patch(`/users/${userId}/role`, { role });
       return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    },
+  });
+}
+
+export function useApproveOrganizer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiClient.patch<ApiSuccessResponse<UserItem>>(
+        `/users/${userId}/approve`,
+      );
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });

@@ -8,16 +8,30 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signUp } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Home } from "lucide-react";
+import { Loader2, AlertCircle, ArrowRight, ArrowLeft, Home, Phone } from "lucide-react";
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid university email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["student", "organizer"]),
-  studentId: z.string().optional(),
-  department: z.string().optional(),
-});
+const registerSchema = z
+  .object({
+    name: z.string().min(2, "Full name must be at least 2 characters"),
+    email: z.string().email("Please enter a valid university email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    role: z.enum(["student", "organizer"]),
+    phoneNumber: z.string().optional(),
+    studentId: z.string().optional(),
+    department: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.role === "organizer") {
+        return !!data.phoneNumber && data.phoneNumber.trim().length >= 8;
+      }
+      return true;
+    },
+    {
+      message: "Phone number is required for organizers (minimum 8 digits)",
+      path: ["phoneNumber"],
+    },
+  );
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
@@ -37,6 +51,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       role: "student",
+      phoneNumber: "",
       studentId: "",
       department: "",
     },
@@ -52,6 +67,7 @@ export default function RegisterPage() {
         email: values.email,
         password: values.password,
         role: values.role,
+        phoneNumber: values.phoneNumber || "",
         studentId: values.studentId || "",
         department: values.department || "",
       });
@@ -61,8 +77,9 @@ export default function RegisterPage() {
         return;
       }
 
-      // Redirect to appropriate portal based on role
-      const redirectTarget = values.role === "organizer" ? "/organizer" : "/student";
+      // If registered as organizer, route to pending verification screen
+      const redirectTarget =
+        values.role === "organizer" ? "/pending-approval" : "/student";
       router.push(redirectTarget);
       router.refresh();
     } catch (err: unknown) {
@@ -188,21 +205,54 @@ export default function RegisterPage() {
             />
           </div>
         ) : (
-          <div>
-            <label
-              htmlFor="department"
-              className="block text-xs font-semibold tracking-wide text-foreground uppercase"
-            >
-              Department or Club Name
-            </label>
-            <input
-              id="department"
-              type="text"
-              placeholder="e.g. ICT Club / CS Department"
-              {...register("department")}
-              className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-hidden"
-            />
-          </div>
+          <>
+            <div>
+              <label
+                htmlFor="department"
+                className="block text-xs font-semibold tracking-wide text-foreground uppercase"
+              >
+                Department or Club Name
+              </label>
+              <input
+                id="department"
+                type="text"
+                placeholder="e.g. ICT Club / CS Department"
+                {...register("department")}
+                className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="phoneNumber"
+                  className="block text-xs font-semibold tracking-wide text-foreground uppercase"
+                >
+                  Phone Number <span className="text-destructive">*</span>
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  Required for admin verification
+                </span>
+              </div>
+              <div className="relative mt-1.5">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                </div>
+                <input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="+1 (555) 000-0000 or 0912345678"
+                  {...register("phoneNumber")}
+                  className="block w-full rounded-lg border border-border bg-background py-2.5 pl-9 pr-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-hidden"
+                />
+              </div>
+              {errors.phoneNumber && (
+                <p className="mt-1 text-xs text-destructive">
+                  {errors.phoneNumber.message}
+                </p>
+              )}
+            </div>
+          </>
         )}
 
         {/* Password */}

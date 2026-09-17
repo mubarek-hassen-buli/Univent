@@ -10,6 +10,8 @@ export interface UniventUser {
   role?: 'student' | 'organizer' | 'admin';
   studentId?: string;
   department?: string;
+  phoneNumber?: string;
+  isApproved?: boolean;
   image?: string | null;
 }
 
@@ -24,6 +26,7 @@ export function useAuth() {
   const isStudent = role === 'student';
   const isOrganizer = role === 'organizer';
   const isAdmin = role === 'admin';
+  const isApproved = user?.isApproved ?? true;
   const isAuthenticated = !!user;
 
   const logout = async (redirectTo = '/login') => {
@@ -41,6 +44,7 @@ export function useAuth() {
     isStudent,
     isOrganizer,
     isAdmin,
+    isApproved,
     error,
     login: signIn.email,
     register: signUp.email,

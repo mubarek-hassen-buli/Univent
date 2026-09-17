@@ -46,14 +46,18 @@ export default function LoginPage() {
         return;
       }
 
-      // Successful login - redirect to student/organizer/admin portal based on role
-      const userRole = response.data?.user?.role;
-      const target =
-        userRole === "admin"
-          ? "/admin"
-          : userRole === "organizer"
-            ? "/organizer"
-            : "/student";
+      // Successful login - redirect based on role and approval status
+      const user = response.data?.user as { role?: string; isApproved?: boolean } | undefined;
+      const userRole = user?.role;
+      const isApproved = user?.isApproved ?? true;
+
+      let target = "/student";
+      if (userRole === "admin") {
+        target = "/admin";
+      } else if (userRole === "organizer") {
+        target = isApproved ? "/organizer" : "/pending-approval";
+      }
+
       router.push(target);
       router.refresh();
     } catch (err: unknown) {

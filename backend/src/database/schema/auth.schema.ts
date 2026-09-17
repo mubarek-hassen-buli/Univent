@@ -11,6 +11,8 @@ export const user = pgTable(
     role: text('role').notNull().default('student'), // 'student' | 'organizer' | 'admin'
     studentId: text('student_id'),
     department: text('department'),
+    phoneNumber: text('phone_number'),
+    isApproved: boolean('is_approved').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -18,6 +20,8 @@ export const user = pgTable(
     index('user_email_idx').on(table.email),
     index('user_role_idx').on(table.role),
     index('user_student_id_idx').on(table.studentId),
+    index('user_phone_number_idx').on(table.phoneNumber),
+    index('user_is_approved_idx').on(table.isApproved),
   ],
 );
 

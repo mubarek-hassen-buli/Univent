@@ -11,6 +11,7 @@ import { ROLES_KEY, UserRole } from '../decorators/roles.decorator.js';
 interface RequestWithUser extends Request {
   user?: {
     role?: string;
+    isApproved?: boolean;
   };
 }
 
@@ -34,6 +35,12 @@ export class RolesGuard implements CanActivate {
     if (!user || !user.role || !requiredRoles.includes(user.role as UserRole)) {
       throw new ForbiddenException(
         `Forbidden: Access requires one of the following roles: [${requiredRoles.join(', ')}]`,
+      );
+    }
+
+    if (user.role === 'organizer' && user.isApproved === false) {
+      throw new ForbiddenException(
+        'Your organizer account is pending administrator verification. Please wait for an administrator to review and activate your account.',
       );
     }
 

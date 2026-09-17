@@ -6,6 +6,7 @@ import {
   useUsers,
   useCreateUser,
   useDeleteUser,
+  useApproveOrganizer,
   type CreateUserInput,
 } from "@/lib/query/users.query";
 import { usePusherChannel } from "@/hooks/use-pusher";
@@ -26,9 +27,12 @@ import {
   X,
   Check,
   AlertCircle,
+  Phone,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 
-type RoleFilter = "ALL" | "student" | "organizer" | "admin";
+type RoleFilter = "ALL" | "student" | "organizer" | "admin" | "PENDING";
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
@@ -45,22 +49,31 @@ export default function AdminUsersPage() {
     email: "",
     password: "",
     role: "student",
+    phoneNumber: "",
     studentId: "",
     department: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
 
-  const roleParam = selectedRole === "ALL" ? undefined : selectedRole;
+  const roleParam =
+    selectedRole === "PENDING"
+      ? "organizer"
+      : selectedRole === "ALL"
+        ? undefined
+        : selectedRole;
+  const isApprovedParam = selectedRole === "PENDING" ? false : undefined;
 
   const { data, isLoading } = useUsers({
     page,
     limit: 10,
     search: search || undefined,
     role: roleParam,
+    isApproved: isApprovedParam,
   });
 
   const createMutation = useCreateUser();
   const deleteMutation = useDeleteUser();
+  const approveMutation = useApproveOrganizer();
 
   // Real-time synchronization for users
   usePusherChannel("users", {
@@ -95,6 +108,11 @@ export default function AdminUsersPage() {
       return;
     }
 
+    if (formData.role === "organizer" && (!formData.phoneNumber || formData.phoneNumber.trim().length < 8)) {
+      setFormError("Phone number is required for organizers (minimum 8 digits).");
+      return;
+    }
+
     try {
       await createMutation.mutateAsync(formData);
       setIsCreateModalOpen(false);
@@ -103,12 +121,22 @@ export default function AdminUsersPage() {
         email: "",
         password: "",
         role: "student",
+        phoneNumber: "",
         studentId: "",
         department: "",
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create user";
       setFormError(msg);
+    }
+  };
+
+  const handleApproveUser = async (userId: string, userName: string) => {
+    try {
+      await approveMutation.mutateAsync(userId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to verify organizer";
+      alert(msg);
     }
   };
 
@@ -132,6 +160,7 @@ export default function AdminUsersPage() {
     { label: "All Users", value: "ALL" },
     { label: "Students", value: "student" },
     { label: "Organizers", value: "organizer" },
+    { label: "Pending Verification", value: "PENDING" },
     { label: "Admins", value: "admin" },
   ];
 
@@ -229,6 +258,8 @@ export default function AdminUsersPage() {
                 <tr>
                   <th className="px-5 py-3.5">User</th>
                   <th className="px-5 py-3.5">Role</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Phone Number</th>
                   <th className="px-5 py-3.5">Department / Student ID</th>
                   <th className="px-5 py-3.5">Registered</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
@@ -283,6 +314,39 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
 
+                      {/* Status */}
+                      <td className="px-5 py-4">
+                        {u.role === "organizer" ? (
+                          u.isApproved === false ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                              <Clock className="h-3 w-3 animate-pulse" />
+                              Pending Approval
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Verified
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                            Active
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Phone Number */}
+                      <td className="px-5 py-4 text-xs">
+                        {u.phoneNumber ? (
+                          <span className="inline-flex items-center gap-1.5 font-mono text-foreground">
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            {u.phoneNumber}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic">Not provided</span>
+                        )}
+                      </td>
+
                       {/* Details */}
                       <td className="px-5 py-4 text-xs text-muted-foreground">
                         {u.role === "student" ? (
@@ -301,22 +365,37 @@ export default function AdminUsersPage() {
                         {formattedDate}
                       </td>
 
-                      {/* Delete Action */}
+                      {/* Actions */}
                       <td className="px-5 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={u.id === currentUser?.id || deleteMutation.isPending}
-                          onClick={() => handleDeleteUser(u.id, u.name)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          title={
-                            u.id === currentUser?.id
-                              ? "Cannot delete own account"
-                              : `Delete ${u.name}`
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          {u.role === "organizer" && u.isApproved === false && (
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              disabled={approveMutation.isPending}
+                              onClick={() => handleApproveUser(u.id, u.name)}
+                              className="gap-1 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400 font-semibold shadow-xs"
+                              title={`Verify and activate ${u.name}`}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Verify Organizer
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={u.id === currentUser?.id || deleteMutation.isPending}
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            title={
+                              u.id === currentUser?.id
+                                ? "Cannot delete own account"
+                                : `Delete ${u.name}`
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -451,6 +530,21 @@ export default function AdminUsersPage() {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-hidden"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wide">
+                  Phone Number {formData.role === "organizer" ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                </label>
+                <input
+                  type="tel"
+                  required={formData.role === "organizer"}
+                  placeholder="+1 (555) 000-0000"
+                  value={formData.phoneNumber || ""}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                   className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-hidden"
                 />
               </div>

@@ -15,6 +15,14 @@ export const authClient = createAuthClient({
           type: 'string',
           required: false,
         },
+        phoneNumber: {
+          type: 'string',
+          required: false,
+        },
+        isApproved: {
+          type: 'boolean',
+          required: false,
+        },
         studentId: {
           type: 'string',
           required: false,

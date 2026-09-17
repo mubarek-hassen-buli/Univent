@@ -83,4 +83,11 @@ export class UsersController {
   ) {
     return this.usersService.updateUserRole(userId, body);
   }
+
+  @Patch(':id/approve')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async approveOrganizer(@Param('id') userId: string) {
+    return this.usersService.approveOrganizer(userId);
+  }
 }

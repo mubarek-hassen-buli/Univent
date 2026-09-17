@@ -43,6 +43,43 @@ export function createBetterAuth(db: DrizzleDb, configService: ConfigService) {
           required: false,
           input: true,
         },
+        phoneNumber: {
+          type: 'string',
+          required: false,
+          input: true,
+        },
+        isApproved: {
+          type: 'boolean',
+          required: false,
+          defaultValue: true,
+          input: true,
+        },
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            if (user.role === 'organizer') {
+              const phone = (user as { phoneNumber?: string }).phoneNumber;
+              if (!phone || typeof phone !== 'string' || !phone.trim()) {
+                throw new Error('Phone number is strictly required for organizer registration');
+              }
+              return {
+                data: {
+                  ...user,
+                  isApproved: false,
+                },
+              };
+            }
+            return {
+              data: {
+                ...user,
+                isApproved: true,
+              },
+            };
+          },
+        },
       },
     },
     trustedOrigins: [frontendUrl, 'http://localhost:3000'],

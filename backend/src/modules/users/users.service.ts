@@ -34,6 +34,8 @@ export class UsersService {
         emailVerified: user.emailVerified,
         image: user.image,
         role: user.role,
+        phoneNumber: user.phoneNumber,
+        isApproved: user.isApproved,
         studentId: user.studentId,
         department: user.department,
         createdAt: user.createdAt,
@@ -64,6 +66,8 @@ export class UsersService {
         email: user.email,
         image: user.image,
         role: user.role,
+        phoneNumber: user.phoneNumber,
+        isApproved: user.isApproved,
         studentId: user.studentId,
         department: user.department,
         updatedAt: user.updatedAt,
@@ -87,12 +91,17 @@ export class UsersService {
       conditions.push(eq(user.role, query.role));
     }
 
+    if (query.isApproved !== undefined) {
+      conditions.push(eq(user.isApproved, query.isApproved));
+    }
+
     if (query.search && query.search.trim()) {
       const pattern = `%${query.search.trim()}%`;
       conditions.push(
         or(
           ilike(user.name, pattern),
           ilike(user.email, pattern),
+          ilike(user.phoneNumber, pattern),
           ilike(user.studentId, pattern),
           ilike(user.department, pattern),
         ),
@@ -113,6 +122,8 @@ export class UsersService {
         name: user.name,
         email: user.email,
         role: user.role,
+        phoneNumber: user.phoneNumber,
+        isApproved: user.isApproved,
         studentId: user.studentId,
         department: user.department,
         createdAt: user.createdAt,
@@ -151,6 +162,8 @@ export class UsersService {
         password: dto.password,
         name: dto.name,
         role: dto.role,
+        phoneNumber: dto.phoneNumber || '',
+        isApproved: dto.isApproved ?? true,
         studentId: dto.studentId || '',
         department: dto.department || '',
       },
@@ -158,12 +171,59 @@ export class UsersService {
 
     const createdUser = res.user;
 
+    // Ensure isApproved flag is explicitly set if admin specified
+    if (dto.isApproved !== undefined) {
+      await this.db
+        .update(user)
+        .set({ isApproved: dto.isApproved, phoneNumber: dto.phoneNumber || null })
+        .where(eq(user.id, createdUser.id));
+    }
+
     if (this.pusherService) {
       await this.pusherService.trigger('users', 'user:created', createdUser);
       await this.pusherService.trigger('admin', 'user:created', createdUser);
     }
 
     return createdUser;
+  }
+
+  async approveOrganizer(userId: string) {
+    const [target] = await this.db
+      .select({ id: user.id, role: user.role, isApproved: user.isApproved })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [updatedUser] = await this.db
+      .update(user)
+      .set({
+        isApproved: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, userId))
+      .returning({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phoneNumber: user.phoneNumber,
+        isApproved: user.isApproved,
+        studentId: user.studentId,
+        department: user.department,
+        updatedAt: user.updatedAt,
+      });
+
+    if (this.pusherService) {
+      await this.pusherService.trigger('users', 'user:updated', updatedUser);
+      await this.pusherService.trigger('admin', 'user:updated', updatedUser);
+      await this.pusherService.trigger(`organizer-${userId}`, 'organizer:approved', updatedUser);
+    }
+
+    return updatedUser;
   }
 
   async deleteUser(userId: string, currentAdminId: string) {
@@ -206,6 +266,8 @@ export class UsersService {
         name: user.name,
         email: user.email,
         role: user.role,
+        phoneNumber: user.phoneNumber,
+        isApproved: user.isApproved,
         updatedAt: user.updatedAt,
       });
 
