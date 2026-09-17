@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, desc, inArray } from 'drizzle-orm';
@@ -11,10 +12,12 @@ import crypto from 'node:crypto';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
 import { DatabaseService } from '../../database/database.service.js';
+import { PusherService } from '../../common/pusher/pusher.service.js';
 import { certificates } from '../../database/schema/certificates.schema.js';
 import { events } from '../../database/schema/events.schema.js';
 import { registrations } from '../../database/schema/registrations.schema.js';
 import { attendance } from '../../database/schema/attendance.schema.js';
+import { notifications } from '../../database/schema/notifications.schema.js';
 import type { EnvConfig } from '../../config/env.schema.js';
 
 export interface CertificatePdfData {
@@ -63,6 +66,7 @@ export class CertificatesService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService<EnvConfig, true>,
+    @Optional() private readonly pusherService?: PusherService,
   ) {
     this.frontendUrl =
       this.configService.get('FRONTEND_URL', { infer: true }) ||
@@ -402,6 +406,39 @@ export class CertificatesService {
       })
       .returning();
 
+    // 6. In-app notification & Real-time Pusher dispatch
+    const [notifRecord] = await db
+      .insert(notifications)
+      .values({
+        userId,
+        title: 'Certificate Awarded! 🎓',
+        message: `Congratulations! You have been awarded an official verified certificate for "${event.title}".`,
+        type: 'CERTIFICATE',
+        link: '/student/certificates',
+      })
+      .returning();
+
+    if (this.pusherService) {
+      await this.pusherService.trigger(`user-${userId}`, 'certificate:issued', {
+        id: newCert.id,
+        certificateCode,
+        eventId: event.id,
+        eventTitle: event.title,
+        issuedAt: newCert.issuedAt,
+        pdfUrl,
+      });
+
+      await this.pusherService.trigger(`user-${userId}`, 'notification:new', notifRecord);
+
+      await this.pusherService.trigger(`organizer-${event.organizerId}`, 'certificate:issued', {
+        id: newCert.id,
+        certificateCode,
+        eventId: event.id,
+        studentId: userId,
+        studentName: registration.user.name,
+      });
+    }
+
     this.logger.log(
       `Issued certificate [${certificateCode}] for student ${registration.user.name} on event "${event.title}"`,
     );
@@ -487,12 +524,47 @@ export class CertificatesService {
           pdfUrl,
         });
 
+        // Persist notification for student
+        const [notifRecord] = await db
+          .insert(notifications)
+          .values({
+            userId: reg.userId,
+            title: 'Certificate Awarded! 🎓',
+            message: `Congratulations! You have been awarded an official verified certificate for "${event.title}".`,
+            type: 'CERTIFICATE',
+            link: '/student/certificates',
+          })
+          .returning();
+
+        if (this.pusherService) {
+          await this.pusherService.trigger(`user-${reg.userId}`, 'certificate:issued', {
+            certificateCode,
+            eventId: event.id,
+            eventTitle: event.title,
+            pdfUrl,
+          });
+
+          await this.pusherService.trigger(`user-${reg.userId}`, 'notification:new', notifRecord);
+        }
+
         newlyIssued.push({
           certificateCode,
           userId: reg.userId,
           studentName: reg.user.name,
         });
       }
+    }
+
+    if (this.pusherService && newlyIssued.length > 0) {
+      await this.pusherService.trigger(`event-${event.id}`, 'certificates:batch-issued', {
+        eventId: event.id,
+        issuedCount: newlyIssued.length,
+      });
+
+      await this.pusherService.trigger(`organizer-${event.organizerId}`, 'certificates:batch-issued', {
+        eventId: event.id,
+        issuedCount: newlyIssued.length,
+      });
     }
 
     this.logger.log(

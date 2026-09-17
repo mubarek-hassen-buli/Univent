@@ -14,11 +14,33 @@ import {
 import { Button } from "@/components/ui/button";
 import { useMyCertificates } from "@/lib/query/certificates.query";
 import { CertificateCard } from "@/components/certificates/certificate-card";
+import { useAuth } from "@/hooks/use-auth";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function StudentCertificatesPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: certificates = [], isLoading, isError, refetch } =
     useMyCertificates();
   const [searchQuery, setSearchQuery] = useState("");
+  const [newCertAlert, setNewCertAlert] = useState<string | null>(null);
+
+  // Real-time certificate issuance sync
+  usePusherChannel(user?.id ? `user-${user.id}` : null, {
+    "certificate:issued": (data: unknown) => {
+      const payload = data as { eventTitle?: string; certificateCode?: string };
+      queryClient.invalidateQueries({ queryKey: ["my-certificates"] });
+      setNewCertAlert(
+        payload?.eventTitle
+          ? `New Certificate Awarded for "${payload.eventTitle}"! Code: ${payload.certificateCode || ""}`
+          : "Congratulations! A new verified certificate has been issued to your profile.",
+      );
+    },
+    "notification:new": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-certificates"] });
+    },
+  });
 
   const filteredCertificates = certificates.filter((cert) => {
     if (!searchQuery.trim()) return true;
@@ -31,6 +53,23 @@ export default function StudentCertificatesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Real-time Certificate Alert */}
+      {newCertAlert && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-300 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5 text-sm">
+            <Sparkles className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="font-semibold">{newCertAlert}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => setNewCertAlert(null)}
+            className="text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

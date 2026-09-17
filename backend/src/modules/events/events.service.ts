@@ -3,10 +3,12 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { eq, and, ilike, or, desc, asc, count } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { DatabaseService } from '../../database/database.service.js';
+import { PusherService } from '../../common/pusher/pusher.service.js';
 import { events } from '../../database/schema/events.schema.js';
 import { categories } from '../../database/schema/categories.schema.js';
 import { user } from '../../database/schema/auth.schema.js';
@@ -16,7 +18,10 @@ import type { QueryEventsDto } from './dto/query-events.dto.js';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    @Optional() private readonly pusherService?: PusherService,
+  ) {}
 
   private get db() {
     return this.databaseService.db;
@@ -53,6 +58,27 @@ export class EventsService {
         status: 'PUBLISHED', // Direct publish for university organizers
       })
       .returning();
+
+    const pusher = this.pusherService;
+    if (pusher) {
+      await pusher.trigger('events', 'event:created', {
+        id: createdEvent.id,
+        title: createdEvent.title,
+        slug: createdEvent.slug,
+        location: createdEvent.location,
+        isOnline: createdEvent.isOnline,
+        startDate: createdEvent.startDate,
+        endDate: createdEvent.endDate,
+        capacity: createdEvent.capacity,
+        registeredCount: 0,
+        remainingSeats: createdEvent.capacity,
+        isSoldOut: false,
+        bannerUrl: createdEvent.bannerUrl,
+        status: createdEvent.status,
+      });
+
+      await pusher.trigger(`organizer-${organizerId}`, 'event:created', createdEvent);
+    }
 
     return createdEvent;
   }
@@ -258,6 +284,13 @@ export class EventsService {
       .where(eq(events.id, eventId))
       .returning();
 
+    const pusher = this.pusherService;
+    if (pusher) {
+      await pusher.trigger('events', 'event:updated', updated);
+      await pusher.trigger(`event-${eventId}`, 'event:updated', updated);
+      await pusher.trigger(`organizer-${existing.organizerId}`, 'event:updated', updated);
+    }
+
     return updated;
   }
 
@@ -282,6 +315,13 @@ export class EventsService {
       .where(eq(events.id, eventId))
       .returning();
 
+    const pusher = this.pusherService;
+    if (pusher) {
+      await pusher.trigger('events', 'event:status-changed', updated);
+      await pusher.trigger(`event-${eventId}`, 'event:status-changed', updated);
+      await pusher.trigger(`organizer-${existing.organizerId}`, 'event:status-changed', updated);
+    }
+
     return updated;
   }
 
@@ -291,6 +331,8 @@ export class EventsService {
     if (userRole !== 'admin' && existing.organizerId !== userId) {
       throw new ForbiddenException('You can only delete your own events');
     }
+
+    const pusher = this.pusherService;
 
     // If attendees have registered, soft cancel to preserve ticket and attendance history
     if (existing.registeredCount > 0) {
@@ -303,6 +345,12 @@ export class EventsService {
         .where(eq(events.id, eventId))
         .returning();
 
+      if (pusher) {
+        await pusher.trigger('events', 'event:status-changed', cancelled);
+        await pusher.trigger(`event-${eventId}`, 'event:status-changed', cancelled);
+        await pusher.trigger(`organizer-${existing.organizerId}`, 'event:status-changed', cancelled);
+      }
+
       return {
         message: 'Event has active registrations and was cancelled rather than deleted',
         event: cancelled,
@@ -310,6 +358,13 @@ export class EventsService {
     }
 
     await this.db.delete(events).where(eq(events.id, eventId));
+
+    if (pusher) {
+      await pusher.trigger('events', 'event:deleted', { eventId });
+      await pusher.trigger(`event-${eventId}`, 'event:deleted', { eventId });
+      await pusher.trigger(`organizer-${existing.organizerId}`, 'event:deleted', { eventId });
+    }
+
     return { message: 'Event successfully deleted' };
   }
 }

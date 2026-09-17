@@ -7,14 +7,36 @@ import { EventCard } from "@/components/events/event-card";
 import { useEvents } from "@/lib/query/events.query";
 import { Button } from "@/components/ui/button";
 import { Calendar, Loader2, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePusherChannel } from "@/hooks/use-pusher";
 
 export default function EventsCatalogPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
     undefined,
   );
   const [isOnline, setIsOnline] = useState<boolean | undefined>(undefined);
   const [page, setPage] = useState(1);
+
+  // Real-time catalog synchronization across all browsers
+  usePusherChannel("events", {
+    "event:created": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+    "event:updated": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+    "event:status-changed": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+    "event:seat-update": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+    "event:deleted": () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
 
   const {
     data,

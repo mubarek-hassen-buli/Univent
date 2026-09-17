@@ -74,11 +74,12 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
         type: "success",
         message: `Successfully issued ${res.issuedCount} verified academic certificates for attended participants!`,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const rawMsg = errorObj.response?.data?.message || errorObj.message;
       setLastNotification({
         type: "error",
-        message: err.response?.data?.message || "Failed to issue certificates.",
+        message: Array.isArray(rawMsg) ? rawMsg.join(", ") : rawMsg || "Failed to issue certificates.",
       });
     }
   };
@@ -132,16 +133,17 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
         scannedAt: result.attendance.scannedAt,
         message: `Verified entrance for ${result.student.name}`,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (soundEnabled) {
         feedback.playErrorTone();
         feedback.triggerHaptic(false);
       }
 
-      const errorMessage =
-        err.response?.data?.message ||
-        "Ticket verification failed. Please check registration status.";
+      const errorObj = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const rawMsg = errorObj.response?.data?.message || errorObj.message;
+      const errorMessage = Array.isArray(rawMsg)
+        ? rawMsg.join(", ")
+        : rawMsg || "Ticket verification failed. Please check registration status.";
 
       setLastNotification({
         type: "error",
@@ -176,16 +178,17 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
         message: `Verified entrance for ${result.student.name}`,
       });
       setManualCode("");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (soundEnabled) {
         feedback.playErrorTone();
         feedback.triggerHaptic(false);
       }
 
-      const errorMessage =
-        err.response?.data?.message ||
-        "Code check-in failed. Please verify the registration code.";
+      const errorObj = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const rawMsg = errorObj.response?.data?.message || errorObj.message;
+      const errorMessage = Array.isArray(rawMsg)
+        ? rawMsg.join(", ")
+        : rawMsg || "Code check-in failed. Please verify the registration code.";
 
       setLastNotification({
         type: "error",
@@ -216,15 +219,17 @@ export default function EventScannerPage({ params }: ScannerPageProps) {
         scannedAt: result.attendance.scannedAt,
         message: `Verified entrance for ${result.student.name}`,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (soundEnabled) {
         feedback.playErrorTone();
         feedback.triggerHaptic(false);
       }
 
-      const errorMessage =
-        err.response?.data?.message || "Check-in failed for this attendee.";
+      const errorObj = err as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const rawMsg = errorObj.response?.data?.message || errorObj.message;
+      const errorMessage = Array.isArray(rawMsg)
+        ? rawMsg.join(", ")
+        : rawMsg || "Check-in failed for this attendee.";
       setLastNotification({
         type: "error",
         message: errorMessage,

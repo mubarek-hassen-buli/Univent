@@ -16,10 +16,31 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOrganizerAnalytics } from "@/lib/query/analytics.query";
+import { useAuth } from "@/hooks/use-auth";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function OrganizerAnalyticsPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: analytics, isLoading, isError, refetch } =
     useOrganizerAnalytics();
+
+  // Real-time synchronization for analytics & turnout metrics
+  usePusherChannel(user?.id ? `organizer-${user.id}` : null, {
+    "registration:new": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "registration:cancelled": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "attendance:checked-in": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "event:created": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+  });
 
   if (isLoading) {
     return (

@@ -13,6 +13,7 @@ import { RegistrationsService } from '../registrations/registrations.service.js'
 import { events } from '../../database/schema/events.schema.js';
 import { registrations } from '../../database/schema/registrations.schema.js';
 import { attendance } from '../../database/schema/attendance.schema.js';
+import { notifications } from '../../database/schema/notifications.schema.js';
 import type { ScanTicketDto } from './dto/scan-ticket.dto.js';
 
 export interface AttendanceResult {
@@ -220,11 +221,50 @@ export class AttendanceService {
       },
     };
 
-    // 9. Real-time Pusher Broadcast
+    // 9. Real-time Pusher Broadcasts
+    // A. Event public channel (for organizer live scanner and live stats)
     await this.pusherService.trigger(
       `event-${event.id}`,
       'attendance:checked-in',
       resultPayload,
+    );
+
+    // B. Organizer private channel (for organizer workspace counters)
+    await this.pusherService.trigger(
+      `organizer-${event.organizerId}`,
+      'attendance:checked-in',
+      resultPayload,
+    );
+
+    // C. Student personal channel: live update boarding pass to attended!
+    await this.pusherService.trigger(
+      `user-${registration.user.id}`,
+      'ticket:attended',
+      {
+        registrationId: registration.id,
+        eventId: event.id,
+        eventTitle: event.title,
+        ticketCode: registration.registrationCode,
+        scannedAt: newAttendance.scannedAt,
+      },
+    );
+
+    // D. Persist and broadcast in-app notification
+    const [notifRecord] = await db
+      .insert(notifications)
+      .values({
+        userId: registration.user.id,
+        title: 'Attendance Confirmed! 🎉',
+        message: `Your pass for "${event.title}" has been verified at the entrance. Enjoy the event!`,
+        type: 'ATTENDANCE',
+        link: `/student/tickets/${registration.id}`,
+      })
+      .returning();
+
+    await this.pusherService.trigger(
+      `user-${registration.user.id}`,
+      'notification:new',
+      notifRecord,
     );
 
     this.logger.log(

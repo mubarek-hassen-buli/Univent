@@ -14,6 +14,7 @@ import { PusherService } from '../../common/pusher/pusher.service.js';
 import { registrations } from '../../database/schema/registrations.schema.js';
 import { events } from '../../database/schema/events.schema.js';
 import { attendance } from '../../database/schema/attendance.schema.js';
+import { notifications } from '../../database/schema/notifications.schema.js';
 import { user } from '../../database/schema/auth.schema.js';
 import { categories } from '../../database/schema/categories.schema.js';
 import { alias } from 'drizzle-orm/pg-core';
@@ -195,16 +196,47 @@ export class RegistrationsService {
       };
     });
 
+    const remaining = event.capacity - (event.registeredCount + 1);
+    const seatPayload = {
+      eventId: event.id,
+      registeredCount: event.registeredCount + 1,
+      capacity: event.capacity,
+      remainingSeats: Math.max(remaining, 0),
+      isSoldOut: remaining <= 0,
+    };
+
+    // Persist registration notification for student
+    const [notifRecord] = await this.db
+      .insert(notifications)
+      .values({
+        userId,
+        title: 'Registration Confirmed! 🎟️',
+        message: `Your seat for "${event.title}" is confirmed. Your digital pass is ready in your wallet!`,
+        type: 'REGISTRATION',
+        link: `/student/tickets/${result.registration.id}`,
+      })
+      .returning();
+
     const pusher = this.pusherService;
     if (pusher) {
-      const remaining = event.capacity - (event.registeredCount + 1);
-      await pusher.trigger(`event-${event.id}`, 'event:seat-update', {
+      // Broadcast seat updates to event room and public events channel
+      await pusher.trigger(`event-${event.id}`, 'event:seat-update', seatPayload);
+      await pusher.trigger('events', 'event:seat-update', seatPayload);
+
+      // Broadcast registration:new to organizer channel for instant counter and analytics update
+      await pusher.trigger(`organizer-${event.organizerId}`, 'registration:new', {
         eventId: event.id,
+        eventTitle: event.title,
+        registrationId: result.registration.id,
+        registrationCode: result.registration.registrationCode,
+        studentId: userId,
         registeredCount: event.registeredCount + 1,
         capacity: event.capacity,
         remainingSeats: Math.max(remaining, 0),
-        isSoldOut: remaining <= 0,
       });
+
+      // Notify student in real-time
+      await pusher.trigger(`user-${userId}`, 'notification:new', notifRecord);
     }
 
     return result;
@@ -381,23 +413,48 @@ export class RegistrationsService {
         .select({
           capacity: events.capacity,
           registeredCount: events.registeredCount,
+          organizerId: events.organizerId,
+          title: events.title,
         })
         .from(events)
         .where(eq(events.id, existing.eventId));
 
       if (updatedEvent) {
         const remaining = updatedEvent.capacity - updatedEvent.registeredCount;
-        await pusher.trigger(
-          `event-${existing.eventId}`,
-          'event:seat-update',
-          {
-            eventId: existing.eventId,
-            registeredCount: updatedEvent.registeredCount,
-            capacity: updatedEvent.capacity,
-            remainingSeats: Math.max(remaining, 0),
-            isSoldOut: remaining <= 0,
-          },
-        );
+        const seatPayload = {
+          eventId: existing.eventId,
+          registeredCount: updatedEvent.registeredCount,
+          capacity: updatedEvent.capacity,
+          remainingSeats: Math.max(remaining, 0),
+          isSoldOut: remaining <= 0,
+        };
+
+        // Broadcast seat updates to event room and public events catalog
+        await pusher.trigger(`event-${existing.eventId}`, 'event:seat-update', seatPayload);
+        await pusher.trigger('events', 'event:seat-update', seatPayload);
+
+        // Broadcast cancellation to organizer channel
+        await pusher.trigger(`organizer-${updatedEvent.organizerId}`, 'registration:cancelled', {
+          eventId: existing.eventId,
+          registrationId,
+          registeredCount: updatedEvent.registeredCount,
+          capacity: updatedEvent.capacity,
+          remainingSeats: Math.max(remaining, 0),
+        });
+
+        // Persist and notify student
+        const [notifRecord] = await this.db
+          .insert(notifications)
+          .values({
+            userId,
+            title: 'Registration Cancelled',
+            message: `Your reservation for "${updatedEvent.title}" has been cancelled and your seat released.`,
+            type: 'REGISTRATION',
+            link: '/student/tickets',
+          })
+          .returning();
+
+        await pusher.trigger(`user-${userId}`, 'notification:new', notifRecord);
       }
     }
 

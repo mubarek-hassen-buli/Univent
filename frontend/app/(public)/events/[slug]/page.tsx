@@ -68,6 +68,18 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
       },
     );
 
+    channel.bind("event:updated", () => {
+      queryClient.invalidateQueries({ queryKey: ["events", slug] });
+    });
+
+    channel.bind("event:status-changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["events", slug] });
+    });
+
+    channel.bind("event:announcement", () => {
+      queryClient.invalidateQueries({ queryKey: ["events", slug] });
+    });
+
     return () => {
       channel.unbind_all();
       pusher.unsubscribe(channelName);

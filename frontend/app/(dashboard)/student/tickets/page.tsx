@@ -17,10 +17,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { useMyTickets, useRegisterEvent, type TicketItem } from "@/lib/query/registrations.query";
 import { TicketPass } from "@/components/tickets/ticket-pass";
+import { useAuth } from "@/hooks/use-auth";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 
 type FilterTab = "all" | "upcoming" | "attended" | "cancelled";
 
 function TicketsContent() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const registerEventId = searchParams.get("register");
@@ -36,6 +41,23 @@ function TicketsContent() {
   } | null>(null);
 
   const registeredEventRef = useRef<string | null>(null);
+
+  // Real-time synchronization for student tickets
+  usePusherChannel(user?.id ? `user-${user.id}` : null, {
+    "ticket:attended": (data: unknown) => {
+      const payload = data as { eventTitle?: string };
+      queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+      setRegistrationNotice({
+        type: "success",
+        message: payload?.eventTitle
+          ? `Attendance confirmed for "${payload.eventTitle}"! Your pass is now marked as attended.`
+          : "Pass verified at entrance! Attendance confirmed in real time.",
+      });
+    },
+    "notification:new": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+    },
+  });
 
   // Auto-trigger registration when redirected with ?register=[eventId]
   useEffect(() => {

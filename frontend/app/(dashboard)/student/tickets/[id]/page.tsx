@@ -1,11 +1,14 @@
 "use client";
 
-import React, { use } from "react";
+import React, { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTicket } from "@/lib/query/registrations.query";
 import { TicketPass } from "@/components/tickets/ticket-pass";
+import { useAuth } from "@/hooks/use-auth";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface TicketDetailPageProps {
   params: Promise<{
@@ -15,7 +18,22 @@ interface TicketDetailPageProps {
 
 export default function TicketDetailPage({ params }: TicketDetailPageProps) {
   const { id } = use(params);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: ticket, isLoading, isError } = useTicket(id);
+  const [justAttended, setJustAttended] = useState(false);
+
+  // Real-time attendance verification listener
+  usePusherChannel(user?.id ? `user-${user.id}` : null, {
+    "ticket:attended": (data: unknown) => {
+      const payload = data as { registrationId?: string };
+      if (!payload?.registrationId || payload.registrationId === id) {
+        queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+        queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+        setJustAttended(true);
+      }
+    },
+  });
 
   if (isLoading) {
     return (
@@ -58,6 +76,19 @@ export default function TicketDetailPage({ params }: TicketDetailPageProps) {
           Code: {ticket.registrationCode}
         </span>
       </div>
+
+      {/* Live Attendance Verification Alert */}
+      {justAttended && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300 animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="text-sm">
+            <p className="font-semibold">Attendance Verified in Real-Time! 🎉</p>
+            <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+              Your pass has been scanned at the entrance. Your attendance has been officially confirmed!
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Boarding Pass */}
       <TicketPass ticket={ticket} variant="full" />

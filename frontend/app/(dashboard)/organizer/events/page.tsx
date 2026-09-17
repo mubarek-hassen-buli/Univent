@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMyEvents, useDeleteEvent } from "@/lib/query/events.query";
+import { useAuth } from "@/hooks/use-auth";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -16,9 +19,33 @@ import {
 } from "lucide-react";
 
 export default function OrganizerEventsPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const { data, isLoading } = useMyEvents({ page, limit: 10 });
   const deleteMutation = useDeleteEvent();
+
+  // Real-time synchronization for managed events table
+  usePusherChannel(user?.id ? `organizer-${user.id}` : null, {
+    "event:created": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "event:updated": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "event:status-changed": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "event:deleted": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "registration:new": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+    "registration:cancelled": () => {
+      queryClient.invalidateQueries({ queryKey: ["my-events"] });
+    },
+  });
 
   const events = data?.data ?? [];
   const pagination = data?.pagination;

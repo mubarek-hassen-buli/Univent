@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganizerAnalytics } from "@/lib/query/analytics.query";
+import { usePusherChannel } from "@/hooks/use-pusher";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -19,7 +21,27 @@ import {
 
 export default function OrganizerDashboardPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: analytics, isLoading } = useOrganizerAnalytics();
+
+  // Real-time synchronization for organizer metrics and live attendance
+  usePusherChannel(user?.id ? `organizer-${user.id}` : null, {
+    "registration:new": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "registration:cancelled": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "attendance:checked-in": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "event:created": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+    "certificates:batch-issued": () => {
+      queryClient.invalidateQueries({ queryKey: ["organizer-analytics"] });
+    },
+  });
 
   const totalEvents = analytics?.totalEvents ?? 0;
   const totalRegistrations = analytics?.totalRegistrations ?? 0;
