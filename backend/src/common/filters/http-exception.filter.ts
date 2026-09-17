@@ -29,6 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let error = 'Internal Server Error';
     let message: string | string[] = 'An unexpected error occurred. Please try again later.';
+    let validationErrors: unknown = undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -41,6 +42,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const resObj = exceptionResponse as Record<string, unknown>;
         message = (resObj.message as string | string[]) ?? exception.message;
         error = (resObj.error as string) ?? exception.name;
+        validationErrors = resObj.errors;
       }
     } else if (exception instanceof Error) {
       // Internal error: mask details from client, log trace internally
@@ -63,8 +65,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         exception instanceof Error ? exception.stack : undefined,
       );
     } else {
+      const details = validationErrors ? ` - Errors: ${JSON.stringify(validationErrors)}` : '';
       this.logger.warn(
-        `[${request.method}] ${request.url} - Status: ${status} - Message: ${JSON.stringify(message)}`,
+        `[${request.method}] ${request.url} - Status: ${status} - Message: ${JSON.stringify(message)}${details}`,
       );
     }
 
@@ -73,6 +76,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       error,
       message,
+      ...(validationErrors !== undefined ? { errors: validationErrors } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

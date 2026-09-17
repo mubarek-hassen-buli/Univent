@@ -39,18 +39,18 @@ export class EventsController {
 
   @Get()
   @Public()
-  @UsePipes(new ZodValidationPipe(queryEventsSchema))
-  async listPublicEvents(@Query() query: QueryEventsDto) {
+  async listPublicEvents(
+    @Query(new ZodValidationPipe(queryEventsSchema)) query: QueryEventsDto,
+  ) {
     return this.eventsService.listEvents(query, true);
   }
 
   @Get('organizer/my-events')
   @UseGuards(RolesGuard)
   @Roles('organizer', 'admin')
-  @UsePipes(new ZodValidationPipe(queryEventsSchema))
   async listMyEvents(
     @CurrentUser('id') organizerId: string,
-    @Query() query: QueryEventsDto,
+    @Query(new ZodValidationPipe(queryEventsSchema)) query: QueryEventsDto,
   ) {
     return this.eventsService.listEvents(
       {
@@ -70,10 +70,9 @@ export class EventsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('organizer', 'admin')
-  @UsePipes(new ZodValidationPipe(createEventSchema))
   async createEvent(
     @CurrentUser('id') organizerId: string,
-    @Body() body: CreateEventDto,
+    @Body(new ZodValidationPipe(createEventSchema)) body: CreateEventDto,
   ) {
     return this.eventsService.createEvent(organizerId, body);
   }
@@ -81,12 +80,11 @@ export class EventsController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('organizer', 'admin')
-  @UsePipes(new ZodValidationPipe(updateEventSchema))
   async updateEvent(
     @CurrentUser('id') userId: string,
     @CurrentUser('role') userRole: string,
     @Param('id') eventId: string,
-    @Body() body: UpdateEventDto,
+    @Body(new ZodValidationPipe(updateEventSchema)) body: UpdateEventDto,
   ) {
     return this.eventsService.updateEvent(userId, userRole, eventId, body);
   }
@@ -94,12 +92,11 @@ export class EventsController {
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('organizer', 'admin')
-  @UsePipes(new ZodValidationPipe(updateEventStatusSchema))
   async updateEventStatus(
     @CurrentUser('id') userId: string,
     @CurrentUser('role') userRole: string,
     @Param('id') eventId: string,
-    @Body() body: UpdateEventStatusDto,
+    @Body(new ZodValidationPipe(updateEventStatusSchema)) body: UpdateEventStatusDto,
   ) {
     return this.eventsService.updateEventStatus(
       userId,

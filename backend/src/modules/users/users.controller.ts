@@ -32,10 +32,9 @@ export class UsersController {
   }
 
   @Patch('me')
-  @UsePipes(new ZodValidationPipe(updateUserSchema))
   async updateMyProfile(
     @CurrentUser('id') userId: string,
-    @Body() body: UpdateUserDto,
+    @Body(new ZodValidationPipe(updateUserSchema)) body: UpdateUserDto,
   ) {
     return this.usersService.updateProfile(userId, body);
   }
@@ -56,10 +55,9 @@ export class UsersController {
   @Patch(':id/role')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  @UsePipes(new ZodValidationPipe(updateRoleSchema))
   async updateUserRole(
     @Param('id') userId: string,
-    @Body() body: UpdateRoleDto,
+    @Body(new ZodValidationPipe(updateRoleSchema)) body: UpdateRoleDto,
   ) {
     return this.usersService.updateUserRole(userId, body);
   }

@@ -73,7 +73,6 @@ export function useOrganizerAnalytics() {
       >('/analytics/organizer');
       return response.data.data;
     },
-    staleTime: 30 * 1000,
   });
 }
 
@@ -86,6 +85,5 @@ export function useAdminAnalytics() {
       >('/analytics/admin');
       return response.data.data;
     },
-    staleTime: 30 * 1000,
   });
 }

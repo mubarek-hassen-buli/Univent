@@ -23,6 +23,16 @@ import {
   ImageIcon,
 } from "lucide-react";
 
+function toLocalISOString(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 const createEventFormSchema = z
   .object({
     title: z.string().min(3, "Title must be at least 3 characters").max(200),
@@ -31,7 +41,15 @@ const createEventFormSchema = z
     location: z.string().min(2, "Location is required"),
     isOnline: z.boolean(),
     meetingLink: z.string().optional(),
-    startDate: z.string().min(1, "Start date and time required"),
+    startDate: z
+      .string()
+      .min(1, "Start date and time required")
+      .refine(
+        (val) => new Date(val).getTime() >= Date.now() - 5 * 60 * 1000,
+        {
+          message: "Start date cannot be in the past",
+        },
+      ),
     endDate: z.string().min(1, "End date and time required"),
     capacity: z.number().int().positive("Capacity must be at least 1 seat"),
     bannerUrl: z.string().optional(),
@@ -135,28 +153,51 @@ export default function CreateEventPage() {
     }
   };
 
+  const watchStartDate = watch("startDate");
+  const minDateTime = toLocalISOString(new Date());
+
   const onSubmit = async (values: CreateEventFormValues) => {
     setServerError(null);
     try {
       await createMutation.mutateAsync({
-        title: values.title,
-        description: values.description,
-        categoryId: values.categoryId || undefined,
-        location: values.location,
+        title: values.title.trim(),
+        description: values.description.trim(),
+        categoryId: values.categoryId ? values.categoryId : undefined,
+        location: values.location.trim(),
         isOnline: values.isOnline,
-        meetingLink: values.meetingLink || undefined,
+        meetingLink: values.meetingLink?.trim() || undefined,
         startDate: new Date(values.startDate).toISOString(),
         endDate: new Date(values.endDate).toISOString(),
         capacity: values.capacity,
-        bannerUrl: values.bannerUrl || undefined,
+        bannerUrl: values.bannerUrl?.trim() || undefined,
       });
 
       router.push("/organizer/events");
       router.refresh();
     } catch (err: unknown) {
-      setServerError(
-        err instanceof Error ? err.message : "Failed to create event. Please try again.",
-      );
+      const axiosErr = err as {
+        response?: {
+          data?: {
+            message?: string | string[];
+            errors?: Array<{ path: string; message: string }>;
+          };
+        };
+      };
+      const respData = axiosErr?.response?.data;
+      if (respData?.errors && Array.isArray(respData.errors) && respData.errors.length > 0) {
+        const errMessages = respData.errors
+          .map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`)
+          .join("; ");
+        setServerError(`Validation error: ${errMessages}`);
+      } else if (respData?.message) {
+        setServerError(
+          Array.isArray(respData.message) ? respData.message.join("; ") : respData.message,
+        );
+      } else {
+        setServerError(
+          err instanceof Error ? err.message : "Failed to create event. Please try again.",
+        );
+      }
     }
   };
 
@@ -419,7 +460,18 @@ export default function CreateEventPage() {
               <input
                 id="startDate"
                 type="datetime-local"
-                {...register("startDate")}
+                min={minDateTime}
+                {...register("startDate", {
+                  onChange: (e) => {
+                    const newStart = e.target.value;
+                    const curEnd = watch("endDate");
+                    if (newStart && (!curEnd || new Date(curEnd) <= new Date(newStart))) {
+                      const startD = new Date(newStart);
+                      startD.setHours(startD.getHours() + 2);
+                      setValue("endDate", toLocalISOString(startD), { shouldValidate: true });
+                    }
+                  },
+                })}
                 className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-hidden"
               />
               {errors.startDate && (
@@ -439,6 +491,7 @@ export default function CreateEventPage() {
               <input
                 id="endDate"
                 type="datetime-local"
+                min={watchStartDate || minDateTime}
                 {...register("endDate")}
                 className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-hidden"
               />

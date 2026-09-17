@@ -38,8 +38,9 @@ export class CategoriesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('admin')
-  @UsePipes(new ZodValidationPipe(createCategorySchema))
-  async createCategory(@Body() body: CreateCategoryDto) {
+  async createCategory(
+    @Body(new ZodValidationPipe(createCategorySchema)) body: CreateCategoryDto,
+  ) {
     return this.categoriesService.createCategory(body);
   }
 }

@@ -76,7 +76,6 @@ export function useEvents(params?: QueryEventsParams) {
       });
       return response.data.data;
     },
-    staleTime: 60 * 1000,
   });
 }
 
