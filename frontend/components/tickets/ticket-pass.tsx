@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
+import { toPng } from "html-to-image";
 import {
   Calendar,
   Clock,
   MapPin,
   Globe,
   Printer,
+  Download,
   XCircle,
   CheckCircle2,
   AlertCircle,
@@ -29,6 +31,11 @@ interface TicketPassProps {
 
 export function TicketPass({ ticket, variant = "full", onCancelled }: TicketPassProps) {
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isCancelledLocal, setIsCancelledLocal] = useState(
+    ticket.status === "CANCELLED",
+  );
+  const passRef = useRef<HTMLDivElement>(null);
   const cancelMutation = useCancelRegistration();
 
   const startDate = new Date(ticket.event.startDate);
@@ -55,19 +62,61 @@ export function TicketPass({ ticket, variant = "full", onCancelled }: TicketPass
     window.print();
   };
 
-  const handleCancel = async () => {
+  const handleDownloadImage = async () => {
+    if (!passRef.current || isDownloading) return;
+    setIsDownloading(true);
     try {
-      await cancelMutation.mutateAsync(ticket.id);
-      setIsConfirmingCancel(false);
-      onCancelled?.();
+      const dataUrl = await toPng(passRef.current, {
+        quality: 1,
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+
+      const link = document.createElement("a");
+      const safeTitle = ticket.event.title.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 25);
+      link.download = `Univent_Pass_${safeTitle}_${ticket.registrationCode}.png`;
+      link.href = dataUrl;
+      link.click();
     } catch (err) {
-      console.error("Failed to cancel ticket:", err);
+      console.error("Failed to export ticket image:", err);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
-  const isCancelled = ticket.status === "CANCELLED";
+  const handleCancel = async () => {
+    try {
+      await cancelMutation.mutateAsync(ticket.id);
+      setIsCancelledLocal(true);
+      setIsConfirmingCancel(false);
+      onCancelled?.();
+    } catch (err: unknown) {
+      const errorObj = err as {
+        response?: { status?: number; data?: { message?: string | string[] } };
+        message?: string;
+      };
+      const status = errorObj.response?.status;
+      const rawMsg = errorObj.response?.data?.message || errorObj.message;
+      const msgStr = Array.isArray(rawMsg) ? rawMsg.join(", ") : rawMsg || "";
+
+      // If backend reports already cancelled, treat as resolved
+      if (
+        status === 404 &&
+        (msgStr.includes("already cancelled") ||
+          msgStr.includes("Active registration not found"))
+      ) {
+        setIsCancelledLocal(true);
+        setIsConfirmingCancel(false);
+        onCancelled?.();
+      } else {
+        console.error("Failed to cancel ticket:", err);
+      }
+    }
+  };
+
+  const isCancelled = isCancelledLocal || ticket.status === "CANCELLED";
   const isAttended = ticket.hasAttended;
-  const isConfirmed = ticket.status === "CONFIRMED" && !isAttended;
+  const isConfirmed = !isCancelled && !isAttended;
 
   // Status Badge Component
   const StatusBadge = () => {
@@ -186,6 +235,7 @@ export function TicketPass({ ticket, variant = "full", onCancelled }: TicketPass
       {/* Boarding Pass Container */}
       <div
         id={`ticket-pass-${ticket.id}`}
+        ref={passRef}
         className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-lg print:border-none print:shadow-none print:m-0"
       >
         {/* Top Header / Brand Bar */}
@@ -366,6 +416,23 @@ export function TicketPass({ ticket, variant = "full", onCancelled }: TicketPass
         </Link>
 
         <div className="flex items-center gap-2">
+          {/* Download as Image Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadImage}
+            disabled={isDownloading}
+            className="gap-1.5"
+            title="Download boarding pass as a high-resolution PNG image"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <Download className="h-4 w-4 text-primary" />
+            )}
+            <span>{isDownloading ? "Generating Image..." : "Download Pass (PNG)"}</span>
+          </Button>
+
           {/* Print Button */}
           <Button
             variant="outline"

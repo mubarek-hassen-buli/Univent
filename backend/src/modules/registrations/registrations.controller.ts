@@ -41,9 +41,10 @@ export class RegistrationsController {
   @Post('cancel/:id')
   async cancelRegistration(
     @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') registrationId: string,
   ) {
-    return this.registrationsService.cancelRegistration(userId, registrationId);
+    return this.registrationsService.cancelRegistration(userId, userRole, registrationId);
   }
 
   @Get('event/:eventId/attendees')

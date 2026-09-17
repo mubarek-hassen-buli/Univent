@@ -101,20 +101,22 @@ export class RegistrationsService {
    * and multi-statement transaction wrapping.
    */
   async registerForEvent(userId: string, eventId: string) {
-    // 1. Verify user is not already registered
+    // 1. Verify user is not already registered with an active ticket
     const [existing] = await this.db
-      .select({ id: registrations.id })
+      .select({
+        id: registrations.id,
+        status: registrations.status,
+      })
       .from(registrations)
       .where(
         and(
           eq(registrations.eventId, eventId),
           eq(registrations.userId, userId),
-          eq(registrations.status, 'CONFIRMED'),
         ),
       )
       .limit(1);
 
-    if (existing) {
+    if (existing && (!existing.status || existing.status === 'CONFIRMED')) {
       throw new ConflictException('You are already registered for this event');
     }
 
@@ -167,23 +169,47 @@ export class RegistrationsService {
 
       // Generate cryptographically secure registration code & QR token
       const registrationCode = this.generateRegistrationCode();
-      const tempId = crypto.randomUUID();
-      const qrHash = this.generateQrHash(tempId, event.id, userId);
 
-      const [newRegistration] = await tx
-        .insert(registrations)
-        .values({
-          id: tempId,
-          eventId: event.id,
-          userId,
-          registrationCode,
-          qrHash,
-          status: 'CONFIRMED',
-        })
-        .returning();
+      let targetRegistration: typeof registrations.$inferSelect;
+
+      // If user previously had a cancelled registration for this event, reactivate it
+      if (existing && existing.status === 'CANCELLED') {
+        const qrHash = this.generateQrHash(existing.id, event.id, userId);
+
+        const [reactivated] = await tx
+          .update(registrations)
+          .set({
+            registrationCode,
+            qrHash,
+            status: 'CONFIRMED',
+            registeredAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(registrations.id, existing.id))
+          .returning();
+
+        targetRegistration = reactivated;
+      } else {
+        const tempId = crypto.randomUUID();
+        const qrHash = this.generateQrHash(tempId, event.id, userId);
+
+        const [newRegistration] = await tx
+          .insert(registrations)
+          .values({
+            id: tempId,
+            eventId: event.id,
+            userId,
+            registrationCode,
+            qrHash,
+            status: 'CONFIRMED',
+          })
+          .returning();
+
+        targetRegistration = newRegistration;
+      }
 
       return {
-        registration: newRegistration,
+        registration: targetRegistration,
         event: {
           id: event.id,
           title: event.title,
@@ -363,21 +389,59 @@ export class RegistrationsService {
   /**
    * Cancels ticket registration and atomically releases seat capacity back to event pool
    */
-  async cancelRegistration(userId: string, registrationId: string) {
+  async cancelRegistration(
+    userId: string,
+    userRole: string,
+    registrationId: string,
+  ) {
     const [existing] = await this.db
-      .select()
+      .select({
+        id: registrations.id,
+        eventId: registrations.eventId,
+        userId: registrations.userId,
+        status: registrations.status,
+        eventTitle: events.title,
+        organizerId: events.organizerId,
+      })
       .from(registrations)
-      .where(
-        and(
-          eq(registrations.id, registrationId),
-          eq(registrations.userId, userId),
-          eq(registrations.status, 'CONFIRMED'),
-        ),
-      )
+      .innerJoin(events, eq(registrations.eventId, events.id))
+      .where(eq(registrations.id, registrationId))
       .limit(1);
 
     if (!existing) {
-      throw new NotFoundException('Active registration not found to cancel');
+      throw new NotFoundException('Registration not found');
+    }
+
+    // Role check: Only the attendee, organizer of the event, or admin can cancel
+    if (
+      userRole !== 'admin' &&
+      existing.userId !== userId &&
+      existing.organizerId !== userId
+    ) {
+      throw new ForbiddenException(
+        'You are not authorized to cancel this registration',
+      );
+    }
+
+    // Idempotent resolution: If already cancelled, return success gracefully
+    if (existing.status === 'CANCELLED') {
+      return {
+        message: 'Registration is already cancelled.',
+        registration: existing,
+      };
+    }
+
+    // Prevent cancellation if student already checked in / attended
+    const [attended] = await this.db
+      .select({ id: attendance.id })
+      .from(attendance)
+      .where(eq(attendance.registrationId, registrationId))
+      .limit(1);
+
+    if (attended) {
+      throw new BadRequestException(
+        'Cannot cancel a ticket pass that has already been verified at the entrance.',
+      );
     }
 
     const result = await this.db.transaction(async (tx) => {
@@ -446,7 +510,7 @@ export class RegistrationsService {
         const [notifRecord] = await this.db
           .insert(notifications)
           .values({
-            userId,
+            userId: existing.userId,
             title: 'Registration Cancelled',
             message: `Your reservation for "${updatedEvent.title}" has been cancelled and your seat released.`,
             type: 'REGISTRATION',
@@ -454,7 +518,7 @@ export class RegistrationsService {
           })
           .returning();
 
-        await pusher.trigger(`user-${userId}`, 'notification:new', notifRecord);
+        await pusher.trigger(`user-${existing.userId}`, 'notification:new', notifRecord);
       }
     }
 

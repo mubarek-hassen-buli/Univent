@@ -71,7 +71,9 @@ describe('RegistrationsService', () => {
 
   describe('Registration Constraints', () => {
     it('should reject duplicate active registration', async () => {
-      mockDb.limit.mockResolvedValueOnce([{ id: 'existing-reg-id' }]);
+      mockDb.limit.mockResolvedValueOnce([
+        { id: 'existing-reg-id', status: 'CONFIRMED' },
+      ]);
 
       await expect(
         service.registerForEvent('usr-1', 'evt-1'),
