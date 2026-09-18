@@ -20,15 +20,17 @@ describe('AnalyticsService', () => {
         findMany: jest.fn(),
       },
     },
-    select: jest.fn(() => ({
-      from: jest.fn(() => {
-        const res = [{ val: 20 }];
-        const promise = Promise.resolve(res);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (promise as any).where = jest.fn().mockResolvedValue(res);
-        return promise;
-      }),
-    })),
+    select: jest.fn(() => {
+      const builder: any = {
+        from: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        then: (resolve: any) => resolve([{ count: 20, val: 20, date: '2026-09-01' }]),
+      };
+      return builder;
+    }),
   };
 
   beforeEach(async () => {

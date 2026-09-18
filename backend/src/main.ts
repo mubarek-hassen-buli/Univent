@@ -25,23 +25,43 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
 
   // CORS setup
-  const allowedOrigins = Array.from(
-    new Set([
-      frontendUrl,
-      frontendUrl.replace(/\/$/, ''),
-      'http://localhost:3000',
-    ])
-  ).filter(Boolean);
+  const allowedOrigins = new Set([
+    'https://univent-red.vercel.app',
+    'http://localhost:3000',
+    ...(frontendUrl ? [frontendUrl.replace(/\/$/, '')] : []),
+  ]);
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server, health checks)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (
+        allowedOrigins.has(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost')
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key', 'Origin', 'Accept'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
-  // Global API Prefix
-  app.setGlobalPrefix('api');
+  // Global API Prefix (excluding root and health check)
+  app.setGlobalPrefix('api', {
+    exclude: ['/', 'health'],
+  });
 
   // Global Interceptors and Filters
   app.useGlobalFilters(new HttpExceptionFilter());

@@ -8,6 +8,10 @@ export function createBetterAuth(db: DrizzleDb, configService: ConfigService) {
   const secret = configService.getOrThrow<string>('BETTER_AUTH_SECRET');
   const baseURL = configService.get<string>('BETTER_AUTH_URL', 'http://localhost:5000');
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    baseURL.startsWith('https://') ||
+    frontendUrl.startsWith('https://');
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -82,7 +86,21 @@ export function createBetterAuth(db: DrizzleDb, configService: ConfigService) {
         },
       },
     },
-    trustedOrigins: [frontendUrl, 'http://localhost:3000'],
+    trustedOrigins: Array.from(
+      new Set([
+        'https://univent-red.vercel.app',
+        'https://*.vercel.app',
+        'http://localhost:3000',
+        frontendUrl,
+        frontendUrl.replace(/\/$/, ''),
+      ])
+    ).filter(Boolean),
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: isProduction ? 'none' : 'lax',
+        secure: isProduction,
+      },
+    },
   });
 }
 

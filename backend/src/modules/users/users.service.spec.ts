@@ -3,6 +3,9 @@ import { NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service.js';
 import { DatabaseService } from '../../database/database.service.js';
 
+import { AuthService } from '../auth/auth.service.js';
+import { PusherService } from '../../common/pusher/pusher.service.js';
+
 describe('UsersService', () => {
   let service: UsersService;
   let mockDb: any;
@@ -26,6 +29,22 @@ describe('UsersService', () => {
         {
           provide: DatabaseService,
           useValue: { db: mockDb },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            auth: {
+              api: {
+                signUpEmail: jest.fn(),
+              },
+            },
+          },
+        },
+        {
+          provide: PusherService,
+          useValue: {
+            trigger: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();
